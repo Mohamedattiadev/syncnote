@@ -1,0 +1,18 @@
+name: syncnote_cli
+description: Terminal notes UI syncing via Supabase — vim-native, standalone binary.
+publish_to: none
+version: 0.2.0
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  supabase: ^2.5.0
+  uuid: ^4.6.0
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0
+
+executables:
+  syncnote: syncnote
