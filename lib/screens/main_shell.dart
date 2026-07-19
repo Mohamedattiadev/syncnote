@@ -67,33 +67,30 @@ class _BottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        padding: const EdgeInsets.all(6),
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        height: 62,
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: AppTheme.overlay),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.overlay, width: 1),
         ),
         child: Row(
           children: [
             _NavItem(
               icon: Icons.auto_awesome_outlined,
-              activeIcon: Icons.auto_awesome,
-              label: 'chat',
+              label: 'Chat',
               selected: current == 0,
               onTap: () => onTap(0),
             ),
             _NavItem(
-              icon: Icons.notes_outlined,
-              activeIcon: Icons.notes,
-              label: 'notes',
+              icon: Icons.article_outlined,
+              label: 'Notes',
               selected: current == 1,
               onTap: () => onTap(1),
             ),
             _NavItem(
-              icon: Icons.tune,
-              activeIcon: Icons.tune,
-              label: 'settings',
+              icon: Icons.settings_outlined,
+              label: 'Settings',
               selected: current == 2,
               onTap: () => onTap(2),
             ),
@@ -106,13 +103,11 @@ class _BottomNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
-  final IconData activeIcon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
   const _NavItem({
     required this.icon,
-    required this.activeIcon,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -121,34 +116,37 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Material(
-        color: selected ? AppTheme.primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(22),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(22),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  selected ? activeIcon : icon,
-                  color: selected ? AppTheme.base : AppTheme.muted,
-                  size: 20,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? AppTheme.base : AppTheme.muted,
-                  ),
-                ),
-              ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: selected ? AppTheme.primary : AppTheme.muted,
+              size: 22,
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                letterSpacing: 0.2,
+                color: selected ? AppTheme.text : AppTheme.muted,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Container(
+              width: 20,
+              height: 2,
+              decoration: BoxDecoration(
+                color: selected ? AppTheme.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
         ),
       ),
     );

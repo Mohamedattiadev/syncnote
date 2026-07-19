@@ -317,26 +317,20 @@ class _NoteTile extends ConsumerWidget {
           }
         },
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.overlay),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.overlay, width: 1),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _kindColor(note.kind).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Icon(
-                    _kindIcon(note.kind),
-                    color: _kindColor(note.kind),
-                    size: 20,
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  _kindIcon(note.kind),
+                  color: AppTheme.muted,
+                  size: 18,
                 ),
               ),
               const SizedBox(width: 12),
@@ -347,48 +341,53 @@ class _NoteTile extends ConsumerWidget {
                     Text(
                       note.title.isEmpty ? '(untitled)' : note.title,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 15),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15.5,
+                          height: 1.2,
+                          letterSpacing: -0.1),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (note.body.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         note.body.replaceAll('\n', ' '),
                         style: const TextStyle(
-                            color: AppTheme.muted, fontSize: 12.5, height: 1.3),
+                            color: AppTheme.muted,
+                            fontSize: 13,
+                            height: 1.4),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    if (note.tags.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: note.tags
-                            .take(4)
-                            .map((t) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.overlay,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text('#$t',
-                                      style: const TextStyle(
-                                          fontSize: 10.5,
-                                          color: AppTheme.text)),
-                                ))
-                            .toList(),
-                      ),
-                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          _fmtDate(note.updatedAt),
+                          style: const TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        if (note.tags.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              note.tags.take(3).map((t) => '#$t').join('  '),
+                              style: const TextStyle(
+                                  color: AppTheme.muted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-              ),
-              Text(
-                _fmtDate(note.updatedAt),
-                style: const TextStyle(color: AppTheme.muted, fontSize: 11),
               ),
             ],
           ),

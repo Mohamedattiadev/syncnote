@@ -1,12 +1,12 @@
-// Full-redesign render.
-// Layout:
-//   ╭─ SyncNote  ●realtime ──────────────────────────────╮
-//   │  📁 tree   │  ▸ Note title              tag  4h    │
-//   │  ▸ #work   │    body preview             tag       │
-//   │            │  ▸ Another note                       │
-//   ├────────────┴──────────────────────────────────────┤
-//   │ NORMAL │ 3/12 │ inbox │                    ● Doom │
-//   ╰─  ⌘ leader: <space>  · e tree · a AI · / find · q quit ╯
+// Premium render — restraint over decoration.
+//
+// Design principles:
+// - One hero color at a time (Primary on focused pane, muted everywhere else)
+// - No emoji chrome, use typographic markers (—  •  ─  ┊)
+// - Generous vertical spacing between list rows (2 rows per item)
+// - Statusline segments separated by muted vertical bars, not colored fills
+// - Preview label pattern: uppercase muted heading + content in fg
+// - Bold weight for hierarchy since we can't change font size
 
 import 'ai.dart';
 import 'ansi.dart';
@@ -21,26 +21,22 @@ class Frame {
   const Frame(this.rows, {this.cursorRow, this.cursorCol});
 }
 
-// ---------- palette shortcuts ----------
-
+// -------- palette shortcuts --------
 String _c(String fg, String bg) => sty([fg, bg]);
 String _r() => sty(['0']);
+String _b() => sty(['1']); // bold
+String _dim() => sty(['2']); // dim
 
 Frame renderFrame(AppState s, int w, int h) {
   final rows = <String>[];
 
-  // Help overlay pre-empts everything.
-  if (s.showHelp) {
-    return _renderHelp(s, w, h);
-  }
+  if (s.showHelp) return _renderHelp(s, w, h);
 
-  // top bar (2 rows)
-  rows.add(_topBar(s, w));
-  rows.add(_divider(s, w));
+  // TOP BAR (2 rows: brand + divider)
+  rows.add(_brandBar(s, w));
+  rows.add(_thinRule(w));
 
-  final bodyH = h - 5; // top(2) + statusline(2) + hint(1)
-  // Responsive layout: [tree] [list] [preview]. Preview only when
-  // terminal wide and we're on list focus (not detail editor).
+  final bodyH = h - 5;
   final layout = _computeLayout(s, w);
   final treeW = layout.tree;
   final previewW = layout.preview;
@@ -49,7 +45,7 @@ Frame renderFrame(AppState s, int w, int h) {
   if (s.focus == Focus.chat) {
     rows.addAll(_renderChat(s, w, bodyH));
   } else {
-    // Reserve 1 col for each active divider — reduce main width so alignment stays.
+    // Reserve 1 col for each active divider.
     final treeDivW = treeW > 0 ? 1 : 0;
     final previewDivW = previewW > 0 ? 1 : 0;
     final actualMainW = mainW - treeDivW - previewDivW;
@@ -61,145 +57,133 @@ Frame renderFrame(AppState s, int w, int h) {
     final previewLines = previewW > 0 && s.focus != Focus.detail
         ? _renderPreview(s, previewW, bodyH)
         : <String>[];
-    final dashedDiv = _c(Colors.muted, Colors.bgBase) + '┊' + _r();
+    final divider = _c(Colors.muted, Colors.bgBase) + '┊' + _r();
     for (int i = 0; i < bodyH; i++) {
       final t = i < treeLines.length ? treeLines[i] : '';
       final m = i < mainLines.length ? mainLines[i] : '';
       final p = i < previewLines.length ? previewLines[i] : '';
-      final tDiv = treeW > 0 ? dashedDiv : '';
-      final pDiv = previewW > 0 ? dashedDiv : '';
+      final tDiv = treeW > 0 ? divider : '';
+      final pDiv = previewW > 0 ? divider : '';
       rows.add(t + tDiv + m + pDiv + p);
     }
   }
 
+  rows.add(_thinRule(w));
   rows.add(_statusline(s, w));
-  rows.add(_hintline(s, w));
 
   int? cr, cc;
   if (s.focus == Focus.chat) {
     cr = h - 3;
     cc = 3 + s.chatCursor;
   } else if (s.mode == Mode.search) {
-    // Hint line format: ' /<input>' → 2-char prefix (space + '/').
     cr = h - 1;
-    cc = 2 + s.searchCursor;
+    cc = 3 + s.searchCursor;
   } else if (s.mode == Mode.cmd) {
-    // Hint line format: ' :<input>' → 2-char prefix.
     cr = h - 1;
-    cc = 2 + s.cmdCursor;
+    cc = 3 + s.cmdCursor;
   } else if (s.focus == Focus.detail) {
     final pos = _detailCursorPosition(s, mainW);
     if (pos != null) {
-      cr = 2 + pos.$1; // +2 for top bar
+      cr = 2 + pos.$1;
       cc = treeW + (treeW > 0 ? 1 : 0) + pos.$2;
     }
   } else if (s.focus == Focus.list) {
-    cr = 2 + (s.listCursor - s.listScroll);
-    cc = treeW + (treeW > 0 ? 1 : 0) + 4;
+    cr = 2 + _visualListRow(s.listCursor - s.listScroll);
+    cc = treeW + (treeW > 0 ? 1 : 0) + 2;
   } else if (s.focus == Focus.tree) {
-    // +1 for tree header row (📁 spaces).
     cr = 3 + s.treeCursor;
-    cc = 4;
+    cc = 3;
   }
   return Frame(rows, cursorRow: cr, cursorCol: cc);
 }
 
+// Each list item takes 2 rows (title + meta). Compute terminal row for cursor.
+int _visualListRow(int idx) => idx * 2;
+
 (int, int)? _detailCursorPosition(AppState s, int mainW) {
   final gutterW = 5;
-  if (s.fieldIdx == 0) return (1, 10 + s.titleBuf.cursor.col);
-  if (s.fieldIdx == 1) return (2, 10 + s.tagsBuf.cursor.col);
-  // body — rows: 0 title, 1 tags, 2 divider, 3 body-label, 4..
-  final bodyTop = 4;
-  final avail = 20; // approx, bodyRow scroll handles overflow
+  if (s.fieldIdx == 0) return (2, 10 + s.titleBuf.cursor.col);
+  if (s.fieldIdx == 1) return (3, 10 + s.tagsBuf.cursor.col);
+  final bodyTop = 5;
+  final avail = 20;
   final scroll = s.bodyBuf.cursor.row < avail ? 0 : s.bodyBuf.cursor.row - avail + 3;
   final visible = s.bodyBuf.cursor.row - scroll;
   return (bodyTop + visible, gutterW + s.bodyBuf.cursor.col);
 }
 
-// ---------- top bar ----------
+// -------- top bar --------
 
-String _topBar(AppState s, int w) {
-  final left = _c(Colors.black, Colors.bgAccent) + '  ✦ SyncNote  ' + _r();
-  final syncDot = _c(Colors.success, Colors.bgBase) + ' ● ' + _r();
-  final ws = _c(Colors.muted, Colors.bgBase) + 'realtime · Doom One ' + _r();
-  final right = syncDot + ws;
+String _brandBar(AppState s, int w) {
+  final left = _c(Colors.fg, Colors.bgBase) + '  ' +
+      _c(Colors.fg, Colors.bgBase) + _b() + 'syncnote' + _r() +
+      _c(Colors.muted, Colors.bgBase) + '   notes · sync · ai' + _r();
+  final syncOK = _c(Colors.success, Colors.bgBase) + '●' + _r();
+  final right = syncOK + _c(Colors.muted, Colors.bgBase) + '  live  ' + _r();
   final gap = w - _len(left) - _len(right);
   return left + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + right;
 }
 
-String _divider(AppState s, int w) {
-  return _c(Colors.muted, Colors.bgBase) + '─' * w + _r();
-}
+String _thinRule(int w) => _c(Colors.muted, Colors.bgBase) + '─' * w + _r();
 
-// ---------- help overlay ----------
+// -------- help --------
 
 Frame _renderHelp(AppState s, int w, int h) {
   final rows = <String>[];
-  final content = _helpText();
-  rows.add(_padRight(_c(Colors.black, Colors.bgAccent) + '  ✦ SyncNote help — press ? or Esc to close  ' + _r(), w));
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '─' * w + _r(), w));
-  for (final line in content) {
+  rows.add(_c(Colors.fg, Colors.bgBase) + '  ' + _b() + 'help' + _r() +
+      _c(Colors.muted, Colors.bgBase) + '   press ? or Esc to close' + _r());
+  rows.add(_thinRule(w));
+  for (final line in _helpText()) {
     if (rows.length >= h - 1) break;
     rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + '  ' + line + _r(), w));
   }
-  while (rows.length < h - 1) {
-    rows.add(_padRight('', w));
-  }
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + ' press ? or Esc to close' + _r(), w));
+  while (rows.length < h - 1) rows.add(_padRight('', w));
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ? / Esc to close' + _r(), w));
   return Frame(rows);
 }
 
 List<String> _helpText() => [
       '',
-      sty([Colors.accent]) + 'MOTION' + sty(['0']),
-      '  h j k l         move left/down/up/right',
-      '  w b e           word forward / back / end',
-      '  0  \$            line start / end',
-      '  gg / G          top / bottom',
-      '  H / L           5x up / down (or field prev/next in detail)',
-      '  <tab>hjkl       jump 5 cells',
-      '  Ctrl+d / Ctrl+u half-page down/up',
+      _b() + 'MOTION',
+      '  h j k l           move',
+      '  w b e             word forward / back / end',
+      r'  0  $              line start / end',
+      '  gg / G            top / bottom',
+      '  H / L             jump 5 · or prev/next field',
+      '  <tab>hjkl         jump 5 cells',
+      '  Ctrl+d / Ctrl+u   half-page down/up',
       '',
-      sty([Colors.accent]) + 'EDITING' + sty(['0']),
-      '  i / I / a / A   insert · at cursor / line start / after / line end',
-      '  o / O           new line below / above',
-      '  v / V           visual char / visual line',
-      '  y / d / c       yank / delete / change (works with motion or visual)',
-      '  yy / dd / cc    apply to whole line',
-      '  x               delete char under cursor',
-      '  p               paste from register',
-      '  u               undo',
-      '  Ctrl+r          redo',
+      _b() + 'EDIT',
+      '  i I a A           insert · at / start / after / end',
+      '  o O               new line below / above',
+      '  v V               visual char / visual line',
+      '  y d c             yank / delete / change',
+      '  yy dd cc          apply to whole line',
+      '  x                 delete char',
+      '  p                 paste',
+      '  u                 undo',
+      '  Ctrl+r            redo',
       '',
-      sty([Colors.accent]) + 'NAVIGATION' + sty(['0']),
-      '  Enter           open selected note',
-      '  Tab             cycle fields (in detail)',
-      '  q               back / quit (with confirm)',
-      '  Esc             cancel current mode',
+      _b() + 'NAVIGATE',
+      '  Enter             open note',
+      '  Tab               cycle fields (in detail)',
+      '  q                 back / quit',
+      '  Esc               cancel',
       '',
-      sty([Colors.accent]) + 'LEADER  (space)' + sty(['0']),
-      '  <space>q        quit',
-      '  <space>w        save note',
-      '  <space>e        toggle tree pane',
-      '  <space>a        AI chat',
-      '  <space>bd       delete note',
-      '  <space>bn       new note',
-      '  <space>fg / ff  search notes',
-      '  <space>r        reload from server',
+      _b() + 'LEADER (space)',
+      '  <space>q          quit',
+      '  <space>w          save',
+      '  <space>e          toggle tree',
+      '  <space>a          AI chat',
+      '  <space>bd         delete note',
+      '  <space>bn         new note',
+      '  <space>fg         search',
       '',
-      sty([Colors.accent]) + 'SEARCH / COMMAND' + sty(['0']),
-      '  /               search filter',
-      '  :               command line',
-      '  :q :w :wq :new :del :reload :search :help',
-      '',
-      sty([Colors.accent]) + 'CHAT' + sty(['0']),
-      '  Enter           send',
-      '  Ctrl+W          toggle notes ↔ web mode',
-      '  Ctrl+L          clear conversation',
-      '  Esc             back to list',
+      _b() + 'COMMANDS',
+      '  /                 search',
+      '  :q :w :new :del :reload :help',
     ];
 
-// ---------- responsive layout ----------
+// -------- layout --------
 
 class _Layout {
   final int tree;
@@ -208,7 +192,6 @@ class _Layout {
 }
 
 _Layout _computeLayout(AppState s, int w) {
-  // Compute tree width
   int tree = 0;
   if (s.treeOpen && w >= 60) {
     if (w < 90) {
@@ -219,16 +202,13 @@ _Layout _computeLayout(AppState s, int w) {
       tree = (w / 5).floor().clamp(22, 32);
     }
   }
-  // Preview only when wide and not editing. Give it more room than before.
   int preview = 0;
   if (s.focus != Focus.detail && s.focus != Focus.chat) {
     final remaining = w - tree;
     if (remaining >= 80) {
-      // Aim for 40% of remaining, clamped to a wider range
       preview = (remaining * 0.4).floor().clamp(32, 56);
     }
   }
-  // Ensure main pane has enough space
   final mainMin = 28;
   while (w - tree - preview < mainMin && preview > 0) {
     preview -= 2;
@@ -237,45 +217,38 @@ _Layout _computeLayout(AppState s, int w) {
   return _Layout(tree, preview);
 }
 
-// ---------- preview pane ----------
+// -------- preview pane --------
 
 List<String> _renderPreview(AppState s, int w, int bodyH) {
   final rows = <String>[];
   final n = s.currentUnderList();
 
-  // Header
-  final head = _c(Colors.accent, Colors.bgSurface) + ' 👁 preview ' + _r();
-  rows.add(_padRight(head, w));
+  // Section label — small muted heading
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  PREVIEW' + _r(), w));
+  rows.add(_padRight('', w));
 
   if (n == null) {
-    while (rows.length < bodyH) {
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ~' + _r(), w));
-    }
+    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  select a note to preview' + _r(), w));
+    while (rows.length < bodyH) rows.add(_padRight('', w));
     return rows;
   }
 
+  final title = n.title.isEmpty ? '(untitled)' : n.title;
+  rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + _b() + '  $title' + _r(), w));
   rows.add(_padRight('', w));
 
-  // Title
-  final title = n.title.isEmpty ? '(untitled)' : n.title;
-  rows.add(_padRight(_c(Colors.primary, Colors.bgBase) + '  ' + title + _r(), w));
-
   // Meta
-  final meta = _c(Colors.muted, Colors.bgBase) + '  ' +
-      _fmtDate(n.updatedAt) +
-      (n.tags.isEmpty ? '' : '  ·  ' + n.tags.map((t) => '#$t').join(' ')) +
-      _r();
-  rows.add(_padRight(meta, w));
-
+  final tags = n.tags.isEmpty ? '' : '   ' + n.tags.map((t) => '#$t').join('  ');
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + _fmtDate(n.updatedAt) + tags + _r(), w));
+  rows.add(_padRight('', w));
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+  rows.add(_padRight('', w));
 
-  // Body — render as markdown, then wrap each rendered line to width
   final rendered = n.body.isEmpty
       ? <String>[_c(Colors.muted, Colors.bgBase) + '(no content)' + _r()]
       : renderMarkdown(n.body);
 
   for (final r in rendered) {
-    // Word-wrap the rendered line (strip ANSI for length calc)
     final wrapped = _wrapPreserve(r, w - 4);
     for (final w2 in wrapped) {
       if (rows.length >= bodyH) break;
@@ -283,26 +256,22 @@ List<String> _renderPreview(AppState s, int w, int bodyH) {
     }
     if (rows.length >= bodyH) break;
   }
-
-  while (rows.length < bodyH) {
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ~' + _r(), w));
-  }
+  while (rows.length < bodyH) rows.add(_padRight('', w));
   return rows;
 }
 
-// ---------- tree pane ----------
+// -------- tree pane --------
 
 List<String> _renderTree(AppState s, int w, int bodyH) {
   final rows = <String>[];
   final items = s.treeItems();
   final focused = s.focus == Focus.tree;
-  final headBg = focused ? Colors.bgAccent : Colors.bgSurface;
-  final headFg = focused ? Colors.black : Colors.accent;
-  rows.add(_padRight(_c(headFg, headBg) + ' 📁 spaces ' + _r() + _c(Colors.muted, Colors.bgBase), w) + _r());
+
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  SPACES' + _r(), w));
 
   for (int i = 0; i < bodyH - 1; i++) {
     if (i >= items.length) {
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '   ~' + _r(), w));
+      rows.add(_padRight('', w));
       continue;
     }
     final it = items[i];
@@ -310,97 +279,103 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
     final active = s.treeFilter == it.key ||
         (s.treeFilter == null && it.key == '__all__');
 
-    final bg = sel ? Colors.bgSurface : Colors.bgBase;
-    final stripe = sel
-        ? _c(Colors.primary, bg) + '▎'
-        : _c(Colors.muted, bg) + ' ';
-    final marker = active
-        ? _c(Colors.success, bg) + '●'
-        : _c(Colors.muted, bg) + ' ';
-    final labelFg = sel ? Colors.primary : (active ? Colors.accent : Colors.fg);
-    final count = it.count.toString();
-
     final b = StringBuffer();
-    b.write(stripe);
-    b.write(marker);
-    b.write(_c(labelFg, bg));
+    // Left stripe cursor — only when tree focused + selected
+    if (sel) {
+      b.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
+    } else {
+      b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
+    }
     b.write(' ');
-    final labelPart = _truncPad(it.label, w - count.length - 5);
-    b.write(labelPart);
-    b.write(_c(Colors.muted, bg));
-    b.write(count);
-    b.write(' ');
-    b.write(_r());
+    if (active) {
+      b.write(_c(Colors.primary, Colors.bgBase) + _b() + it.label + _r());
+    } else {
+      b.write(_c(Colors.muted, Colors.bgBase) + it.label + _r());
+    }
+    // Count right-aligned
+    final count = it.count.toString();
+    final padWidth = w - _len(b.toString()) - _len(count) - 3;
+    if (padWidth > 0) {
+      b.write(' ' * padWidth);
+    }
+    b.write(_c(Colors.muted, Colors.bgBase) + count + '  ' + _r());
     rows.add(_padRight(b.toString(), w));
   }
   return rows;
 }
 
-// ---------- notes list ----------
+// -------- notes list --------
 
 List<String> _renderList(AppState s, int w, int bodyH) {
   final rows = <String>[];
   final items = s.filtered();
-  final maxRows = bodyH;
+  // Each item = 2 rows (title + meta) → fit half as many
+  final rowsPerItem = 2;
+  final maxItems = (bodyH / rowsPerItem).floor();
+
   if (s.listCursor < s.listScroll) s.listScroll = s.listCursor;
-  if (s.listCursor >= s.listScroll + maxRows) {
-    s.listScroll = s.listCursor - maxRows + 1;
+  if (s.listCursor >= s.listScroll + maxItems) {
+    s.listScroll = s.listCursor - maxItems + 1;
   }
   if (s.listScroll < 0) s.listScroll = 0;
 
   if (items.isEmpty) {
-    // Empty state — nice centered art
-    final blank = _padRight('', w);
-    rows.add(blank);
-    rows.add(blank);
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '     ✎  no notes yet' + _r(), w));
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '        press ${_c(Colors.warn, Colors.bgBase)}n${_c(Colors.muted, Colors.bgBase)} to create your first' + _r(), w));
-    while (rows.length < maxRows) rows.add(blank);
+    rows.add(_padRight('', w));
+    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  no notes yet' + _r(), w));
+    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  press ' + _c(Colors.warn, Colors.bgBase) + _b() + 'n' + _r() + _c(Colors.muted, Colors.bgBase) + ' to create' + _r(), w));
+    while (rows.length < bodyH) rows.add(_padRight('', w));
     return rows;
   }
 
-  final end = (s.listScroll + maxRows).clamp(0, items.length);
+  final end = (s.listScroll + maxItems).clamp(0, items.length);
   for (int i = s.listScroll; i < end; i++) {
     final n = items[i];
     final sel = i == s.listCursor && s.focus == Focus.list;
 
     final title = n.title.isEmpty ? '(untitled)' : n.title;
-    final tagLine = n.tags.isEmpty
-        ? ''
-        : n.tags.take(3).map((t) => '#$t').join(' ');
+    final tags = n.tags.isEmpty ? '' : n.tags.take(3).map((t) => '#$t').join('  ');
     final date = _fmtDate(n.updatedAt);
 
-    // Subtle cursor: left border stripe + slightly darker bg (surface),
-    // instead of loud full-row primary highlight.
-    final bg = sel ? Colors.bgSurface : Colors.bgBase;
-    final stripe = sel
-        ? _c(Colors.primary, bg) + '▎'
-        : _c(Colors.muted, bg) + ' ';
-    final titleFg = sel ? Colors.primary : Colors.fg;
+    // Row 1: title
+    final b1 = StringBuffer();
+    if (sel) {
+      b1.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
+    } else {
+      b1.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
+    }
+    b1.write(' ');
+    if (sel) {
+      b1.write(_c(Colors.primary, Colors.bgBase) + _b() + title + _r());
+    } else {
+      b1.write(_c(Colors.fg, Colors.bgBase) + title + _r());
+    }
+    rows.add(_padRight(b1.toString(), w));
 
-    final content = stripe +
-        _c(titleFg, bg) + (sel ? ' ' : '  ') + title +
-        _c(Colors.muted, bg) + '  ' + tagLine;
-    final rightSeg = _c(Colors.muted, bg) + date + ' ';
-
-    final contentPadded = _truncPad(content, w - _len(rightSeg));
-    rows.add(_padRight(contentPadded + rightSeg + _r(), w));
+    // Row 2: meta (date + tags)
+    final b2 = StringBuffer();
+    b2.write(_c(Colors.muted, Colors.bgBase) + '    ' + date);
+    if (tags.isNotEmpty) {
+      b2.write('   ' + tags);
+    }
+    b2.write(_r());
+    rows.add(_padRight(b2.toString(), w));
   }
-  while (rows.length < maxRows) rows.add(_padRight('', w));
+  while (rows.length < bodyH) rows.add(_padRight('', w));
   return rows;
 }
 
-// ---------- detail (editor) ----------
+// -------- detail (editor) --------
 
 List<String> _renderDetail(AppState s, int w, int bodyH) {
   final rows = <String>[];
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  EDITOR' + _r(), w));
+  rows.add(_padRight('', w));
   rows.add(_fieldRow(s, 'title', s.titleBuf.text, s.fieldIdx == 0, w));
-  rows.add(_fieldRow(s, 'tags ', s.tagsBuf.text, s.fieldIdx == 1, w));
+  rows.add(_fieldRow(s, 'tags', s.tagsBuf.text, s.fieldIdx == 1, w));
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
 
-  // body area
   final bodyLines = s.bodyBuf.lines;
-  final avail = bodyH - 3;
+  final avail = bodyH - 5;
   final scroll = s.bodyBuf.cursor.row < avail ? 0 : s.bodyBuf.cursor.row - avail + 3;
   for (int i = 0; i < avail; i++) {
     final li = scroll + i;
@@ -414,37 +389,47 @@ List<String> _renderDetail(AppState s, int w, int bodyH) {
 }
 
 String _fieldRow(AppState s, String label, String value, bool active, int w) {
-  final labelStyle = active
-      ? _c(Colors.black, Colors.bgWarn)
-      : _c(Colors.muted, Colors.bgSurface);
-  final valueStyle = _c(Colors.fg, Colors.bgBase);
-  final display = value.isEmpty ? _c(Colors.muted, Colors.bgBase) + '(empty)' : value;
-  return _padRight(labelStyle + ' $label ' + _r() + valueStyle + '  ' + display + _r(), w);
+  final b = StringBuffer();
+  b.write(_c(Colors.muted, Colors.bgBase) + '  ');
+  if (active) {
+    b.write(_c(Colors.primary, Colors.bgBase) + _b() + label + _r());
+  } else {
+    b.write(_c(Colors.muted, Colors.bgBase) + label + _r());
+  }
+  b.write('    ');
+  final display = value.isEmpty
+      ? _c(Colors.muted, Colors.bgBase) + '—' + _r()
+      : _c(Colors.fg, Colors.bgBase) + value + _r();
+  b.write(display);
+  return _padRight(b.toString(), w);
 }
 
 String _bodyLine(AppState s, int rowIdx, String line, int w) {
   final cursorRow = s.fieldIdx == 2 ? s.bodyBuf.cursor.row : -1;
   final isCursor = rowIdx == cursorRow;
-  final bg = isCursor ? Colors.bgSurface : Colors.bgBase;
 
   final b = StringBuffer();
-  b.write(_c(Colors.muted, bg));
-  b.write(' ${(rowIdx + 1).toString().padLeft(3)} ');
-  b.write(_c(Colors.fg, bg));
+  if (isCursor) {
+    b.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
+  } else {
+    b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
+  }
+  b.write(_c(Colors.muted, Colors.bgBase) + ' ${(rowIdx + 1).toString().padLeft(3)} ' + _r());
+  b.write(_c(Colors.fg, Colors.bgBase));
 
   final buf = s.bodyBuf;
-  final maxW = w - 5;
+  final maxW = w - 6;
   for (int c = 0; c < line.length && c < maxW; c++) {
     final ch = line[c];
     final selected = buf.inSelection(rowIdx, c);
     final atCursor = rowIdx == cursorRow && c == buf.cursor.col && s.fieldIdx == 2;
     final inYank = s.yankActive && _inYankRange(s, rowIdx, c);
     if (atCursor && s.mode != Mode.insert) {
-      b.write(_c(Colors.black, Colors.bgPrimary) + ch + _c(Colors.fg, bg));
+      b.write(_c(Colors.black, Colors.bgPrimary) + ch + _c(Colors.fg, Colors.bgBase));
     } else if (inYank) {
-      b.write(_c(Colors.black, Colors.bgWarn) + ch + _c(Colors.fg, bg));
+      b.write(_c(Colors.black, Colors.bgWarn) + ch + _c(Colors.fg, Colors.bgBase));
     } else if (selected) {
-      b.write(_c(Colors.fg, Colors.bgOverlay) + ch + _c(Colors.fg, bg));
+      b.write(_c(Colors.fg, Colors.bgOverlay) + ch + _c(Colors.fg, Colors.bgBase));
     } else {
       b.write(ch);
     }
@@ -455,37 +440,35 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
   return _padRight(b.toString(), w);
 }
 
-// ---------- chat ----------
+// -------- chat --------
 
 List<String> _renderChat(AppState s, int w, int bodyH) {
   final rows = <String>[];
   final maxH = bodyH - 1;
 
-  // Mode badge
-  final modeBadge = s.chatUseNotes
-      ? _c(Colors.black, Colors.bgSuccess) + ' 📁 NOTES ' + _r()
-      : _c(Colors.black, Colors.bgPrimary) + ' 🌐 WEB ' + _r();
+  final modeName = s.chatUseNotes ? 'notes' : 'web';
   final modelName = s.aiCfg?.model ?? '(no key)';
-  final modelBadge = _c(Colors.black, Colors.bgAccent) + ' $modelName ' + _r();
   final srcName = switch (lastAiSource) {
     AiSource.env => 'env',
     AiSource.file => 'file',
     AiSource.none => '⚠ missing',
   };
-  final srcBadge = _c(Colors.muted, Colors.bgBase) + ' key: $srcName ' + _r();
-  rows.add(_padRight(' $modeBadge $modelBadge $srcBadge  ${_c(Colors.muted, Colors.bgBase)}Ctrl+W=mode  Ctrl+L=clear  Esc=back${_r()}', w));
+  final head = _c(Colors.muted, Colors.bgBase) + '  CHAT' + _r() +
+      _c(Colors.muted, Colors.bgBase) + '   mode ' + _r() + _c(Colors.fg, Colors.bgBase) + modeName + _r() +
+      _c(Colors.muted, Colors.bgBase) + '   model ' + _r() + _c(Colors.fg, Colors.bgBase) + modelName + _r() +
+      _c(Colors.muted, Colors.bgBase) + '   key ' + _r() + _c(Colors.fg, Colors.bgBase) + srcName + _r();
+  rows.add(_padRight(head, w));
 
-  // Build message lines
   final lines = <_ChatLine>[];
   for (final m in s.chat) {
-    final wrapped = _wrapText(m.content, w - 10);
+    final wrapped = _wrapText(m.content, w - 12);
     for (int i = 0; i < wrapped.length; i++) {
       lines.add(_ChatLine(m.role, wrapped[i], isFirst: i == 0));
     }
     lines.add(_ChatLine('spacer', ''));
   }
   if (s.chatStreaming != null) {
-    final wrapped = _wrapText('${s.chatStreaming!}▍', w - 10);
+    final wrapped = _wrapText('${s.chatStreaming!}▍', w - 12);
     for (int i = 0; i < wrapped.length; i++) {
       lines.add(_ChatLine('assistant', wrapped[i], isFirst: i == 0));
     }
@@ -493,8 +476,8 @@ List<String> _renderChat(AppState s, int w, int bodyH) {
 
   if (lines.isEmpty) {
     rows.add(_padRight('', w));
-    rows.add(_padRight(_c(Colors.accent, Colors.bgBase) + '     ✨ ready when you are' + _r(), w));
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '     ' + (s.chatUseNotes ? 'ask about your notes — RAG mode' : 'general chat — no notes context') + _r(), w));
+    rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + _b() + '  ready when you are' + _r(), w));
+    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + (s.chatUseNotes ? 'ask about your notes' : 'general chat mode') + _r(), w));
     while (rows.length < maxH) rows.add(_padRight('', w));
   } else {
     final scroll = lines.length > maxH ? lines.length - maxH : 0;
@@ -504,11 +487,8 @@ List<String> _renderChat(AppState s, int w, int bodyH) {
     while (rows.length < maxH) rows.add(_padRight('', w));
   }
 
-  // composer at bottom
-  final composer = _c(Colors.muted, Colors.bgBase) + ' ' +
-      _c(Colors.warn, Colors.bgSurface) + ' ❯ ' + _r() +
-      ' ' + s.chatInput;
-  rows.add(_padRight(composer, w));
+  final prompt = _c(Colors.warn, Colors.bgBase) + '  ›' + _r() + ' ' + s.chatInput;
+  rows.add(_padRight(prompt, w));
   return rows;
 }
 
@@ -522,47 +502,13 @@ class _ChatLine {
 String _chatLineRender(_ChatLine l, int w) {
   if (l.role == 'spacer') return _padRight('', w);
   final isUser = l.role == 'user';
-  final avatar = l.isFirst
+  final label = l.isFirst
       ? (isUser
-          ? _c(Colors.black, Colors.bgPrimary) + ' 👤 ' + _r()
-          : _c(Colors.black, Colors.bgAccent) + ' ✨ ' + _r())
-      : '    ';
-  final bg = isUser ? Colors.bgSurface : Colors.bgBase;
-  final fg = Colors.fg;
-  final content = ' $avatar ' + _c(fg, bg) + ' ' + l.text + ' ' + _r();
+          ? _c(Colors.primary, Colors.bgBase) + '  you  ' + _r()
+          : _c(Colors.accent, Colors.bgBase) + '  ai   ' + _r())
+      : '       ';
+  final content = label + _c(Colors.fg, Colors.bgBase) + l.text + _r();
   return _padRight(content, w);
-}
-
-/// Wrap while preserving ANSI codes — width counts only visible chars.
-List<String> _wrapPreserve(String s, int width) {
-  final ansiRegex = RegExp(r'\x1b\[[0-9;?]*[a-zA-Z]');
-  final visible = s.replaceAll(ansiRegex, '');
-  if (visible.length <= width) return [s];
-  // Simple char-wise wrap; keep it readable, escape overhead is small
-  final out = <String>[];
-  int visCount = 0;
-  final buf = StringBuffer();
-  int i = 0;
-  while (i < s.length) {
-    if (s[i] == '\x1b') {
-      final m = ansiRegex.matchAsPrefix(s, i);
-      if (m != null) {
-        buf.write(m.group(0));
-        i = m.end;
-        continue;
-      }
-    }
-    buf.write(s[i]);
-    visCount++;
-    i++;
-    if (visCount >= width) {
-      out.add(buf.toString());
-      buf.clear();
-      visCount = 0;
-    }
-  }
-  if (buf.isNotEmpty) out.add(buf.toString());
-  return out;
 }
 
 List<String> _wrapText(String s, int width) {
@@ -590,71 +536,86 @@ List<String> _wrapText(String s, int width) {
   return out;
 }
 
-// ---------- statusline / hint ----------
-
-String _statusline(AppState s, int w) {
-  final modeBg = switch (s.mode) {
-    Mode.normal => Colors.bgPrimary,
-    Mode.insert => Colors.bgSuccess,
-    Mode.visual || Mode.visualLine => Colors.bgAccent,
-    Mode.cmd || Mode.search => Colors.bgWarn,
-    Mode.confirmQuit => Colors.bgError,
-  };
-  final b = StringBuffer();
-  b.write(_c(Colors.black, modeBg) + '  ${s.mode.label}  ' + _r());
-  final loc = s.focus == Focus.list
-      ? '  ${s.listCursor + 1}/${s.filtered().length}  '
-      : s.focus == Focus.detail
-          ? '  ${s.activeBuf.cursor.row + 1}:${s.activeBuf.cursor.col + 1}  '
-          : '  ';
-  b.write(_c(Colors.fg, Colors.bgOverlay) + loc + _r());
-  final context = switch (s.focus) {
-    Focus.list => '  📥 inbox${s.treeFilter != null ? ' · filtered' : ''}  ',
-    Focus.detail => '  📝 editing  ',
-    Focus.chat => '  ✨ ai chat  ',
-    Focus.tree => '  📁 tree  ',
-  };
-  b.write(_c(Colors.fg, Colors.bgSurface) + context + _r());
-
-  // right side: sync + theme
-  final right = _c(Colors.success, Colors.bgSurface) + '  ● ' + _r() +
-      _c(Colors.muted, Colors.bgSurface) + 'sync  ' + _r() +
-      _c(Colors.black, Colors.bgAccent) + '  Doom One  ' + _r();
-
-  final leftLen = _len(b.toString());
-  final rightLen = _len(right);
-  final gap = w - leftLen - rightLen;
-  final pad = gap > 0 ? _c(Colors.muted, Colors.bgSurface) + ' ' * gap + _r() : '';
-  return b.toString() + pad + right;
+/// Wrap while preserving ANSI codes — width counts only visible chars.
+List<String> _wrapPreserve(String s, int width) {
+  final ansiRegex = RegExp(r'\x1b\[[0-9;?]*[a-zA-Z]');
+  final visible = s.replaceAll(ansiRegex, '');
+  if (visible.length <= width) return [s];
+  final out = <String>[];
+  int visCount = 0;
+  final buf = StringBuffer();
+  int i = 0;
+  while (i < s.length) {
+    if (s[i] == '\x1b') {
+      final m = ansiRegex.matchAsPrefix(s, i);
+      if (m != null) {
+        buf.write(m.group(0));
+        i = m.end;
+        continue;
+      }
+    }
+    buf.write(s[i]);
+    visCount++;
+    i++;
+    if (visCount >= width) {
+      out.add(buf.toString());
+      buf.clear();
+      visCount = 0;
+    }
+  }
+  if (buf.isNotEmpty) out.add(buf.toString());
+  return out;
 }
 
-String _hintline(AppState s, int w) {
-  String txt;
+// -------- statusline + hint --------
+
+String _statusline(AppState s, int w) {
+  // Confirm-quit or toast dominates.
   if (s.mode == Mode.confirmQuit) {
-    txt = _c(Colors.black, Colors.bgWarn) + ' quit SyncNote? (y/N) ' + _r();
-    return _padRight(txt, w);
+    return _padRight(_c(Colors.error, Colors.bgBase) + '  quit? (y/N)' + _r(), w);
   }
   if (s.toast.isNotEmpty) {
     final color = s.toastErr ? Colors.error : Colors.success;
-    txt = _c(color, Colors.bgBase) + ' ${s.toast} ' + _r();
-    return _padRight(txt, w);
+    return _padRight(_c(color, Colors.bgBase) + '  ' + s.toast + _r(), w);
   }
   if (s.mode == Mode.search) {
-    return _padRight(_c(Colors.warn, Colors.bgBase) + ' / ' + s.searchInput + _r(), w);
+    return _padRight(_c(Colors.warn, Colors.bgBase) + '  /' + s.searchInput + _r(), w);
   }
   if (s.mode == Mode.cmd) {
-    return _padRight(_c(Colors.warn, Colors.bgBase) + ' : ' + s.cmdInput + _r(), w);
+    return _padRight(_c(Colors.warn, Colors.bgBase) + '  :' + s.cmdInput + _r(), w);
   }
-  final hint = switch (s.focus) {
-    Focus.list => ' hjkl move · Enter open · n new · dd delete · yy yank · <space>e tree · <space>a AI · / search · q quit',
-    Focus.detail => ' hjkl move · i insert · v visual · y yank · Tab field · Ctrl+S save · q back',
-    Focus.chat => ' Enter send · Ctrl+W notes/web · Ctrl+L clear · Esc back',
-    Focus.tree => ' j/k move · Enter/l apply · h/q back · <space>e close',
+
+  // Normal: mode · context · pos · muted hints
+  final modeLabel = s.mode.label.toLowerCase();
+  final ctx = switch (s.focus) {
+    Focus.list => 'inbox',
+    Focus.detail => 'editor',
+    Focus.chat => 'chat',
+    Focus.tree => 'tree',
   };
-  return _padRight(_c(Colors.muted, Colors.bgBase) + hint + _r(), w);
+  final pos = s.focus == Focus.list
+      ? '${s.listCursor + 1}/${s.filtered().length}'
+      : s.focus == Focus.detail
+          ? '${s.activeBuf.cursor.row + 1}:${s.activeBuf.cursor.col + 1}'
+          : '';
+  final left = _c(Colors.muted, Colors.bgBase) + '  ' +
+      _c(Colors.fg, Colors.bgBase) + _b() + modeLabel + _r() +
+      _c(Colors.muted, Colors.bgBase) + '   ' + ctx +
+      (pos.isNotEmpty ? '   ' + pos : '') + _r();
+
+  final hint = _c(Colors.muted, Colors.bgBase) + _hintText(s) + '  ' + _r();
+  final gap = w - _len(left) - _len(hint);
+  return left + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + hint;
 }
 
-// ---------- helpers ----------
+String _hintText(AppState s) => switch (s.focus) {
+      Focus.list => 'hjkl · n new · dd del · yy yank · / search · ? help · q quit',
+      Focus.detail => 'i insert · v visual · y yank · Tab field · q back',
+      Focus.chat => 'Ctrl+W mode · Ctrl+L clear · Esc back',
+      Focus.tree => 'j/k · Enter apply · h/q back',
+    };
+
+// -------- helpers --------
 
 int _len(String s) => s.replaceAll(RegExp(r'\x1b\[[0-9;?]*[a-zA-Z]'), '').length;
 
@@ -686,9 +647,9 @@ bool _inYankRange(AppState s, int row, int col) {
 String _fmtDate(DateTime d) {
   final now = DateTime.now();
   final diff = now.difference(d);
-  if (diff.inMinutes < 1) return 'now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-  if (diff.inHours < 24) return '${diff.inHours}h';
-  if (diff.inDays < 7) return '${diff.inDays}d';
+  if (diff.inMinutes < 1) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
   return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
