@@ -49,18 +49,26 @@ Frame renderFrame(AppState s, int w, int h) {
   if (s.focus == Focus.chat) {
     rows.addAll(_renderChat(s, w, bodyH));
   } else {
+    // Reserve 1 col for each active divider — reduce main width so alignment stays.
+    final treeDivW = treeW > 0 ? 1 : 0;
+    final previewDivW = previewW > 0 ? 1 : 0;
+    final actualMainW = mainW - treeDivW - previewDivW;
+
     final treeLines = treeW > 0 ? _renderTree(s, treeW, bodyH) : <String>[];
     final mainLines = s.focus == Focus.detail
-        ? _renderDetail(s, mainW, bodyH)
-        : _renderList(s, mainW, bodyH);
+        ? _renderDetail(s, actualMainW, bodyH)
+        : _renderList(s, actualMainW, bodyH);
     final previewLines = previewW > 0 && s.focus != Focus.detail
         ? _renderPreview(s, previewW, bodyH)
         : <String>[];
+    final dashedDiv = _c(Colors.muted, Colors.bgBase) + '┊' + _r();
     for (int i = 0; i < bodyH; i++) {
       final t = i < treeLines.length ? treeLines[i] : '';
       final m = i < mainLines.length ? mainLines[i] : '';
       final p = i < previewLines.length ? previewLines[i] : '';
-      rows.add(t + m + p);
+      final tDiv = treeW > 0 ? dashedDiv : '';
+      final pDiv = previewW > 0 ? dashedDiv : '';
+      rows.add(t + tDiv + m + pDiv + p);
     }
   }
 
@@ -83,11 +91,11 @@ Frame renderFrame(AppState s, int w, int h) {
     final pos = _detailCursorPosition(s, mainW);
     if (pos != null) {
       cr = 2 + pos.$1; // +2 for top bar
-      cc = treeW + pos.$2;
+      cc = treeW + (treeW > 0 ? 1 : 0) + pos.$2;
     }
   } else if (s.focus == Focus.list) {
     cr = 2 + (s.listCursor - s.listScroll);
-    cc = treeW + 4;
+    cc = treeW + (treeW > 0 ? 1 : 0) + 4;
   } else if (s.focus == Focus.tree) {
     // +1 for tree header row (📁 spaces).
     cr = 3 + s.treeCursor;
@@ -211,19 +219,20 @@ _Layout _computeLayout(AppState s, int w) {
       tree = (w / 5).floor().clamp(22, 32);
     }
   }
-  // Preview only when wide and not editing
+  // Preview only when wide and not editing. Give it more room than before.
   int preview = 0;
   if (s.focus != Focus.detail && s.focus != Focus.chat) {
     final remaining = w - tree;
-    if (remaining >= 90) {
-      preview = (remaining / 3).floor().clamp(28, 46);
+    if (remaining >= 80) {
+      // Aim for 40% of remaining, clamped to a wider range
+      preview = (remaining * 0.4).floor().clamp(32, 56);
     }
   }
   // Ensure main pane has enough space
-  final mainMin = 30;
+  final mainMin = 28;
   while (w - tree - preview < mainMin && preview > 0) {
     preview -= 2;
-    if (preview < 24) { preview = 0; break; }
+    if (preview < 28) { preview = 0; break; }
   }
   return _Layout(tree, preview);
 }

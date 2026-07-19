@@ -23,17 +23,18 @@ List<String> renderMarkdown(String source) {
 }
 
 String _renderLine(String line) {
-  // Task checkbox
+  // Task checkbox — bigger, high-contrast glyphs
   final task = RegExp(r'^(\s*)-\s+\[( |x|X)\]\s+(.*)$').firstMatch(line);
   if (task != null) {
     final indent = task.group(1) ?? '';
     final done = (task.group(2) ?? ' ').toLowerCase() == 'x';
     final rest = _inline(task.group(3) ?? '');
     if (done) {
-      return '$indent${sty([Colors.success])}☑${sty(['0'])} '
+      return '$indent${sty([Colors.success, '1'])}[✓]${sty(['0'])} '
           '${sty([Colors.muted])}$rest${sty(['0'])}';
     }
-    return '$indent${sty([Colors.muted])}☐${sty(['0'])} $rest';
+    return '$indent${sty([Colors.warn, '1'])}[ ]${sty(['0'])} '
+        '${sty([Colors.fg])}$rest${sty(['0'])}';
   }
 
   // Bullet list
@@ -76,8 +77,8 @@ String _renderLine(String line) {
     return sty([Colors.muted]) + '─' * 40 + sty(['0']);
   }
 
-  // Plain paragraph
-  return _inline(line);
+  // Plain paragraph — use brighter fg
+  return sty([Colors.fg]) + _inline(line) + sty(['0']);
 }
 
 /// Inline markdown: **bold**, _italic_, `code`, [link](url).
