@@ -252,7 +252,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       scored.sort((a, b) => b.$1.compareTo(a.$1));
       return scored.map((e) => e.$2).toList();
     }
-    return it.toList();
+    // Pinned first, then by updated_at desc
+    final sorted = it.toList();
+    sorted.sort((a, b) {
+      if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
+    return sorted;
   }
 
   /// Same algorithm as CLI AppState.fuzzyScore
@@ -383,27 +389,64 @@ class _NoteTile extends ConsumerWidget {
         },
         onLongPress: () async {
           HapticFeedback.heavyImpact();
-          final ok = await showDialog<bool>(
+          final action = await showModalBottomSheet<String>(
             context: context,
-            builder: (_) => AlertDialog(
-              backgroundColor: AppTheme.surface,
-              title: const Text('Delete note?'),
-              content: Text(note.title.isEmpty ? '(untitled)' : note.title),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('cancel'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('delete'),
-                ),
-              ],
+            backgroundColor: AppTheme.surface,
+            builder: (_) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: Icon(
+                      note.pinned ? Icons.push_pin_outlined : Icons.push_pin,
+                      color: AppTheme.warning,
+                    ),
+                    title: Text(note.pinned ? 'unpin' : 'pin to top'),
+                    onTap: () => Navigator.pop(context, 'pin'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline, color: AppTheme.error),
+                    title: const Text('delete'),
+                    onTap: () => Navigator.pop(context, 'delete'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.close, color: AppTheme.muted),
+                    title: const Text('cancel'),
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
           );
-          if (ok == true) {
+          if (!context.mounted) return;
+          if (action == 'pin') {
+            await ref.read(notesRepoProvider).update(
+                  note.copyWith(pinned: !note.pinned),
+                );
+          } else if (action == 'delete') {
+            final backup = note;
             await ref.read(notesRepoProvider).delete(note.id);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('deleted "${backup.title.isEmpty ? "untitled" : backup.title}"'),
+                  action: SnackBarAction(
+                    label: 'undo',
+                    textColor: AppTheme.warning,
+                    onPressed: () async {
+                      await ref.read(notesRepoProvider).create(
+                            title: backup.title,
+                            body: backup.body,
+                            kind: backup.kind,
+                            tags: backup.tags,
+                            folder: backup.folder,
+                          );
+                    },
+                  ),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
           }
         },
         child: Container(
@@ -418,8 +461,8 @@ class _NoteTile extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Icon(
-                  _kindIcon(note.kind),
-                  color: AppTheme.muted,
+                  note.pinned ? Icons.push_pin : _kindIcon(note.kind),
+                  color: note.pinned ? AppTheme.warning : AppTheme.muted,
                   size: 18,
                 ),
               ),

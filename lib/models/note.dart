@@ -15,6 +15,7 @@ class Note {
   final String? url;
   final List<String> tags;
   final String? folder;
+  final bool pinned;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,6 +30,7 @@ class Note {
     required this.updatedAt,
     this.url,
     this.folder,
+    this.pinned = false,
   });
 
   factory Note.fromMap(Map<String, dynamic> m) => Note(
@@ -40,6 +42,7 @@ class Note {
         url: m['url'] as String?,
         tags: (m['tags'] as List?)?.map((e) => e as String).toList() ?? const [],
         folder: m['folder'] as String?,
+        pinned: (m['pinned'] as bool?) ?? false,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String),
       );
@@ -53,6 +56,7 @@ class Note {
         'url': url,
         'tags': tags,
         'folder': folder,
+        'pinned': pinned,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
@@ -64,6 +68,7 @@ class Note {
     String? url,
     List<String>? tags,
     String? folder,
+    bool? pinned,
     DateTime? updatedAt,
   }) =>
       Note(
@@ -75,6 +80,7 @@ class Note {
         url: url ?? this.url,
         tags: tags ?? this.tags,
         folder: folder ?? this.folder,
+        pinned: pinned ?? this.pinned,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );

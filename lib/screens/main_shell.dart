@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
+import '../providers.dart';
 import 'ai_chat_screen.dart';
 import 'ai_settings_screen.dart';
 import 'command_palette.dart';
@@ -22,6 +23,12 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final notesAsync = ref.watch(notesStreamProvider);
+    final noteCount = notesAsync.asData?.value.length ?? 0;
+    final taskCount = notesAsync.asData?.value.fold<int>(0, (a, n) {
+          final undone = RegExp(r'^\s*-\s+\[ \]', multiLine: true).allMatches(n.body).length;
+          return a + undone;
+        }) ?? 0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -66,6 +73,8 @@ class _MainShellState extends ConsumerState<MainShell> {
             bottomNavigationBar: _BottomNav(
               current: _idx,
               onTap: (i) => setState(() => _idx = i),
+              noteBadge: noteCount,
+              taskBadge: taskCount,
             ),
           ),
         ),
@@ -77,7 +86,14 @@ class _MainShellState extends ConsumerState<MainShell> {
 class _BottomNav extends StatelessWidget {
   final int current;
   final ValueChanged<int> onTap;
-  const _BottomNav({required this.current, required this.onTap});
+  final int noteBadge;
+  final int taskBadge;
+  const _BottomNav({
+    required this.current,
+    required this.onTap,
+    this.noteBadge = 0,
+    this.taskBadge = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -103,12 +119,14 @@ class _BottomNav extends StatelessWidget {
               icon: Icons.article_outlined,
               label: 'Notes',
               selected: current == 1,
+              badge: noteBadge > 0 ? noteBadge : null,
               onTap: () => onTap(1),
             ),
             _NavItem(
               icon: Icons.task_alt,
               label: 'Tasks',
               selected: current == 2,
+              badge: taskBadge > 0 ? taskBadge : null,
               onTap: () => onTap(2),
             ),
             _NavItem(
@@ -129,11 +147,13 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final int? badge;
   const _NavItem({
     required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badge,
   });
 
   @override
@@ -148,10 +168,37 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: selected ? AppTheme.primary : AppTheme.muted,
-              size: 22,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  color: selected ? AppTheme.primary : AppTheme.muted,
+                  size: 22,
+                ),
+                if (badge != null)
+                  Positioned(
+                    top: -4,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                      child: Text(
+                        badge! > 99 ? '99+' : '$badge',
+                        style: const TextStyle(
+                          color: AppTheme.base,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(

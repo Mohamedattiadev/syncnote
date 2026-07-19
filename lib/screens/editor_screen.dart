@@ -144,6 +144,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     setState(() => _dirty = true);
   }
 
+  String _wordCount(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return '';
+    final words = trimmed.split(RegExp(r'\s+')).length;
+    final readMin = (words / 200).ceil();
+    return '$words w · ${readMin}m read';
+  }
+
   void _prefixLine(String prefix) {
     final text = _body.text;
     final cur = _body.selection.baseOffset.clamp(0, text.length);
@@ -219,7 +227,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.note == null ? 'new note' : 'edit'),
+          title: Row(
+            children: [
+              Text(widget.note == null ? 'new note' : 'edit'),
+              const SizedBox(width: 8),
+              Text(
+                _wordCount(_body.text),
+                style: const TextStyle(
+                    color: AppTheme.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
           actions: [
             _SaveStatus(dirty: _dirty, lastSaved: _lastSaved, saving: _saving),
             const SizedBox(width: 4),
