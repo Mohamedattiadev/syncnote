@@ -60,3 +60,4 @@ bin/syncnote
 # Build artifacts
 build/
 cli/pubspec.lock
+.claude/
