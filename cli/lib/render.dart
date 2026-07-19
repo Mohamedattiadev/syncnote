@@ -346,6 +346,11 @@ List<String> _helpText() => [
       '  :v/pat/d          keep only matching lines',
       '  :bl :backlinks    show notes linking here',
       '  [[title]]         wiki-link syntax in body',
+      '',
+      _b() + 'SECURITY / UNDO',
+      '  :encrypt <pass>   XOR+base64 obscure current note body',
+      '  :decrypt <pass>   reverse encryption',
+      '  :undolist         show undo/redo stack sizes',
     ];
 
 // -------- layout --------

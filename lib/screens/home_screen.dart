@@ -21,6 +21,7 @@ import '../providers.dart';
 import '../services/templates.dart';
 import '../widgets/fade_scale_route.dart';
 import '../widgets/skeleton.dart';
+import 'all_notes_screen.dart';
 import 'editor_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -305,6 +306,16 @@ class _HomeBody extends StatelessWidget {
     if (tagFilter != null) {
       src = src.where((n) => n.tags.contains(tagFilter)).toList();
     }
+    if (rowFilter == _RowKind.tags) {
+      src = src.where((n) => n.tags.isNotEmpty).toList();
+    }
+    if (rowFilter == _RowKind.connections) {
+      src = src.where((n) =>
+          RegExp(r'https?://').hasMatch(n.body) ||
+          n.tags.contains('link') ||
+          n.tags.contains('imported')).toList();
+    }
+    // shared: no backing yet — chip still highlights, shows empty results
 
     final pinned = src.where((n) => n.pinned).toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -358,6 +369,9 @@ class _HomeBody extends StatelessWidget {
             notes: pinned,
             pad: horizontalPad,
             onTapTag: onTagFilter,
+            onViewAll: () => Navigator.of(context).push(FadeScalePageRoute(
+                builder: (_) => const AllNotesScreen(
+                    filter: AllNotesFilter.pinned, title: 'Pinned'))),
           ),
         if (recent.isNotEmpty)
           _CardRow(
@@ -365,6 +379,9 @@ class _HomeBody extends StatelessWidget {
             notes: recent,
             pad: horizontalPad,
             onTapTag: onTagFilter,
+            onViewAll: () => Navigator.of(context).push(FadeScalePageRoute(
+                builder: (_) => const AllNotesScreen(
+                    filter: AllNotesFilter.recent, title: 'Recent items'))),
           ),
         if (spaces.isNotEmpty)
           _SpacesRow(
@@ -655,11 +672,13 @@ class _CardRow extends StatelessWidget {
   final List<Note> notes;
   final double pad;
   final ValueChanged<String?> onTapTag;
+  final VoidCallback? onViewAll;
   const _CardRow({
     required this.title,
     required this.notes,
     required this.pad,
     required this.onTapTag,
+    this.onViewAll,
   });
   @override
   Widget build(BuildContext context) {
@@ -669,7 +688,7 @@ class _CardRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _RowHeader(title: title, pad: pad),
+            _RowHeader(title: title, pad: pad, onTap: onViewAll),
             const SizedBox(height: 12),
             SizedBox(
               height: 240,
@@ -839,16 +858,15 @@ class _AiConversationsRow extends StatelessWidget {
 class _RowHeader extends StatelessWidget {
   final String title;
   final double pad;
-  const _RowHeader({required this.title, required this.pad});
+  final VoidCallback? onTap;
+  const _RowHeader({required this.title, required this.pad, this.onTap});
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(pad, 0, pad, 0),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          // TODO: view-all — not part of Phase A scope.
-        },
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(

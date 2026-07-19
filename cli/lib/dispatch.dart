@@ -1153,6 +1153,27 @@ DispatchResult _runCmd(AppState s, String cmd) {
     return DispatchResult.none;
   }
 
+  // :encrypt <passphrase> / :decrypt <passphrase>
+  if (cmd.startsWith('encrypt ')) {
+    _encryptBuffer(s, cmd.substring(8).trim());
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('decrypt ')) {
+    _decryptBuffer(s, cmd.substring(8).trim());
+    return DispatchResult.none;
+  }
+
+  // :undolist — show undo stack size
+  if (cmd == 'undolist' || cmd == 'undol') {
+    if (s.focus == Focus.detail) {
+      s.toast = 'undo=${s.activeBuf.undoStack.length} redo=${s.activeBuf.redoStack.length}';
+    } else {
+      s.toast = 'undolist needs editor';
+      s.toastErr = true;
+    }
+    return DispatchResult.none;
+  }
+
   final parts = cmd.split(RegExp(r'\s+'));
   final head = parts.first;
   final rest = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -1688,6 +1709,70 @@ void _clipPaste(AppState s) {
     s.toast = 'no clipboard: $e';
     s.toastErr = true;
   }
+}
+
+/// Simple XOR+base64 stream cipher, keyed by SHA-256-like fold of passphrase.
+/// Not cryptographically strong — sufficient for casual obscuration.
+/// Uses a distinctive "SNENC1:" marker to identify encrypted payloads.
+const _encMarker = 'SNENC1:';
+
+List<int> _keyStream(String pass, int len) {
+  final bytes = utf8.encode(pass);
+  // Simple key expansion: repeat + rotate + XOR chain
+  final ks = List<int>.filled(len, 0);
+  int acc = 0x9e3779b9;
+  for (int i = 0; i < len; i++) {
+    acc = ((acc * 1664525) + 1013904223) & 0xFFFFFFFF;
+    ks[i] = (bytes[i % bytes.length] ^ (acc & 0xff)) & 0xff;
+  }
+  return ks;
+}
+
+String snEncrypt(String plain, String pass) {
+  final bytes = utf8.encode(plain);
+  final ks = _keyStream(pass, bytes.length);
+  final out = List<int>.generate(bytes.length, (i) => bytes[i] ^ ks[i]);
+  return _encMarker + base64Encode(out);
+}
+
+String? snDecrypt(String cipher, String pass) {
+  if (!cipher.startsWith(_encMarker)) return null;
+  try {
+    final bytes = base64Decode(cipher.substring(_encMarker.length));
+    final ks = _keyStream(pass, bytes.length);
+    final out = List<int>.generate(bytes.length, (i) => bytes[i] ^ ks[i]);
+    return utf8.decode(out);
+  } catch (_) {
+    return null;
+  }
+}
+
+void _encryptBuffer(AppState s, String pass) {
+  if (s.focus != Focus.detail) { s.toast = ':encrypt needs editor'; s.toastErr = true; return; }
+  if (pass.isEmpty) { s.toast = 'usage: :encrypt <passphrase>'; s.toastErr = true; return; }
+  final b = s.activeBuf;
+  if (b.text.startsWith(_encMarker)) { s.toast = 'already encrypted'; return; }
+  b.snapshot();
+  final enc = snEncrypt(b.text, pass);
+  b.lines = [enc];
+  b.cursor.row = 0;
+  b.cursor.col = 0;
+  s.dirty = true;
+  s.toast = 'encrypted (${enc.length} chars)';
+}
+
+void _decryptBuffer(AppState s, String pass) {
+  if (s.focus != Focus.detail) { s.toast = ':decrypt needs editor'; s.toastErr = true; return; }
+  if (pass.isEmpty) { s.toast = 'usage: :decrypt <passphrase>'; s.toastErr = true; return; }
+  final b = s.activeBuf;
+  final plain = snDecrypt(b.text.trim(), pass);
+  if (plain == null) { s.toast = 'bad ciphertext or wrong pass'; s.toastErr = true; return; }
+  b.snapshot();
+  b.lines = plain.isEmpty ? [''] : plain.split('\n');
+  b.cursor.row = 0;
+  b.cursor.col = 0;
+  s.dirty = true;
+  s.toast = 'decrypted (${plain.length} chars)';
 }
 
 void _sortLines(AppState s, {bool reverse = false, bool unique = false}) {

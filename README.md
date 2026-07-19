@@ -139,6 +139,10 @@ Org:      :daily :today          open/create daily note
           :v/pat/d               keep only matching lines
           :bl :backlinks         notes linking here
           [[title]]              wiki-link (tap in Flutter preview)
+Regs:     "{a-z}y  "{a-z}p      named registers (yank/paste)
+Sec:      :encrypt <pass>        XOR+base64 obscure note body
+          :decrypt <pass>        reverse encryption
+          :undolist              show undo/redo stack sizes
 Search:   / (fzf-style overlay)
 Pin:      P
 Help:     ? or :help
