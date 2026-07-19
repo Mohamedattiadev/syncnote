@@ -16,7 +16,30 @@ import 'ansi.dart';
 /// Return a list of already-ANSI-styled lines (no width wrapping).
 List<String> renderMarkdown(String source) {
   final out = <String>[];
+  bool inCode = false;
+  String? codeLang;
   for (final raw in source.split('\n')) {
+    // Fenced code blocks
+    final fenceMatch = RegExp(r'^```(\w*)').firstMatch(raw);
+    if (fenceMatch != null) {
+      if (inCode) {
+        // Closing fence
+        inCode = false;
+        codeLang = null;
+        out.add(sty([Colors.muted]) + '└' + '─' * 20 + sty(['0']));
+      } else {
+        // Opening fence
+        inCode = true;
+        codeLang = fenceMatch.group(1);
+        final label = codeLang!.isEmpty ? 'code' : codeLang;
+        out.add(sty([Colors.muted]) + '┌ ' + sty([Colors.accent, '1']) + label + sty(['0']));
+      }
+      continue;
+    }
+    if (inCode) {
+      out.add(sty([Colors.warn, Colors.bgSurface]) + '  ' + raw + sty(['0']));
+      continue;
+    }
     out.add(_renderLine(raw));
   }
   return out;

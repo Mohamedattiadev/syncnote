@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import '../models/note.dart';
 import '../providers.dart';
+import '../widgets/skeleton.dart';
 import 'editor_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -29,18 +31,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       body: notesAsync.when(
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: AppTheme.primary)),
+        loading: () => ListView(
+          padding: const EdgeInsets.fromLTRB(12, 130, 12, 100),
+          children: const [
+            NoteSkeleton(),
+            NoteSkeleton(),
+            NoteSkeleton(),
+            NoteSkeleton(),
+            NoteSkeleton(),
+          ],
+        ),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('error: $e',
-                style: const TextStyle(color: AppTheme.error)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline,
+                    size: 48, color: AppTheme.error),
+                const SizedBox(height: 12),
+                Text('error: $e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppTheme.error)),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('retry'),
+                  onPressed: () => ref.invalidate(notesStreamProvider),
+                ),
+              ],
+            ),
           ),
         ),
         data: (notes) {
           final visible = _apply(notes, query);
-          return CustomScrollView(
+          return RefreshIndicator(
+            color: AppTheme.primary,
+            backgroundColor: AppTheme.surface,
+            onRefresh: () async {
+              HapticFeedback.mediumImpact();
+              ref.invalidate(notesStreamProvider);
+              await Future.delayed(const Duration(milliseconds: 400));
+            },
+            child: CustomScrollView(
             slivers: [
               SliverAppBar(
                 floating: true,
@@ -159,6 +192,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
             ],
+            ),
           );
         },
       ),
@@ -311,10 +345,14 @@ class _NoteTile extends ConsumerWidget {
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => EditorScreen(note: note)),
-        ),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => EditorScreen(note: note)),
+          );
+        },
         onLongPress: () async {
+          HapticFeedback.heavyImpact();
           final ok = await showDialog<bool>(
             context: context,
             builder: (_) => AlertDialog(

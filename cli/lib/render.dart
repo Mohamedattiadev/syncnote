@@ -337,11 +337,14 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
     } else {
       b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
     }
+    // Folder / tag icon
+    final glyph = it.key == '__all__' ? '◉' : (it.key == '__untagged__' ? '○' : '▸');
     b.write(' ');
     if (active) {
+      b.write(_c(Colors.accent, Colors.bgBase) + glyph + ' ' + _r());
       b.write(_c(Colors.primary, Colors.bgBase) + _b() + it.label + _r());
     } else {
-      b.write(_c(Colors.muted, Colors.bgBase) + it.label + _r());
+      b.write(_c(Colors.muted, Colors.bgBase) + glyph + ' ' + it.label + _r());
     }
     // Count right-aligned
     final count = it.count.toString();
