@@ -10,6 +10,7 @@
 
 import 'ai.dart';
 import 'ansi.dart';
+import 'markdown.dart';
 import 'model.dart';
 import 'state.dart';
 
@@ -71,9 +72,11 @@ Frame renderFrame(AppState s, int w, int h) {
     cr = h - 3;
     cc = 3 + s.chatCursor;
   } else if (s.mode == Mode.search) {
+    // Hint line format: ' /<input>' → 2-char prefix (space + '/').
     cr = h - 1;
-    cc = 3 + s.searchCursor;
+    cc = 2 + s.searchCursor;
   } else if (s.mode == Mode.cmd) {
+    // Hint line format: ' :<input>' → 2-char prefix.
     cr = h - 1;
     cc = 2 + s.cmdCursor;
   } else if (s.focus == Focus.detail) {
@@ -257,14 +260,19 @@ List<String> _renderPreview(AppState s, int w, int bodyH) {
 
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
 
-  // Body — wrap to width
-  final bodyWrapped = n.body.isEmpty
-      ? <String>[_c(Colors.muted, Colors.bgBase) + '  (no content)' + _r()]
-      : _wrapText(n.body, w - 4).map((l) => _c(Colors.fg, Colors.bgBase) + '  ' + l + _r()).toList();
+  // Body — render as markdown, then wrap each rendered line to width
+  final rendered = n.body.isEmpty
+      ? <String>[_c(Colors.muted, Colors.bgBase) + '(no content)' + _r()]
+      : renderMarkdown(n.body);
 
-  for (final line in bodyWrapped) {
+  for (final r in rendered) {
+    // Word-wrap the rendered line (strip ANSI for length calc)
+    final wrapped = _wrapPreserve(r, w - 4);
+    for (final w2 in wrapped) {
+      if (rows.length >= bodyH) break;
+      rows.add(_padRight('  ' + w2, w));
+    }
     if (rows.length >= bodyH) break;
-    rows.add(_padRight(line, w));
   }
 
   while (rows.length < bodyH) {
@@ -514,6 +522,38 @@ String _chatLineRender(_ChatLine l, int w) {
   final fg = Colors.fg;
   final content = ' $avatar ' + _c(fg, bg) + ' ' + l.text + ' ' + _r();
   return _padRight(content, w);
+}
+
+/// Wrap while preserving ANSI codes — width counts only visible chars.
+List<String> _wrapPreserve(String s, int width) {
+  final ansiRegex = RegExp(r'\x1b\[[0-9;?]*[a-zA-Z]');
+  final visible = s.replaceAll(ansiRegex, '');
+  if (visible.length <= width) return [s];
+  // Simple char-wise wrap; keep it readable, escape overhead is small
+  final out = <String>[];
+  int visCount = 0;
+  final buf = StringBuffer();
+  int i = 0;
+  while (i < s.length) {
+    if (s[i] == '\x1b') {
+      final m = ansiRegex.matchAsPrefix(s, i);
+      if (m != null) {
+        buf.write(m.group(0));
+        i = m.end;
+        continue;
+      }
+    }
+    buf.write(s[i]);
+    visCount++;
+    i++;
+    if (visCount >= width) {
+      out.add(buf.toString());
+      buf.clear();
+      visCount = 0;
+    }
+  }
+  if (buf.isNotEmpty) out.add(buf.toString());
+  return out;
 }
 
 List<String> _wrapText(String s, int width) {

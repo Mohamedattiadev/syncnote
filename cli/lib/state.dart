@@ -109,12 +109,42 @@ class AppState {
     }
     if (search.isNotEmpty) {
       final q = search.toLowerCase();
-      it = it.where((n) =>
-          n.title.toLowerCase().contains(q) ||
-          n.body.toLowerCase().contains(q) ||
-          n.tags.any((t) => t.toLowerCase().contains(q)));
+      // Score-based fuzzy match: substring > subsequence.
+      final scored = it.map((n) {
+        final hay = '${n.title.toLowerCase()} ${n.body.toLowerCase()} ${n.tags.join(' ').toLowerCase()}';
+        final score = _fuzzyScore(q, hay);
+        return (score, n);
+      }).where((e) => e.$1 > 0).toList();
+      scored.sort((a, b) => b.$1.compareTo(a.$1));
+      return scored.map((e) => e.$2).toList();
     }
     return it.toList();
+  }
+
+  /// 0 = no match, higher = better.
+  /// - Exact substring: 1000 - position
+  /// - Subsequence: chars-in-order but not adjacent, weighted by density
+  static int _fuzzyScore(String query, String haystack) {
+    if (query.isEmpty) return 1;
+    final idx = haystack.indexOf(query);
+    if (idx >= 0) return 1000 - idx; // reward early substring hits
+    // Fuzzy subsequence match
+    int hi = 0;
+    int hits = 0;
+    int lastPos = -1;
+    int score = 0;
+    for (final ch in query.runes) {
+      final rest = haystack.substring(hi);
+      final found = rest.indexOf(String.fromCharCode(ch));
+      if (found < 0) return 0;
+      hi += found + 1;
+      hits++;
+      // Reward adjacency (chars close together)
+      if (lastPos >= 0 && found == 0) score += 5;
+      lastPos = hi;
+      score += 1;
+    }
+    return hits > 0 ? score : 0;
   }
 
   /// Ordered list of tag entries for tree pane: (label, filter-key, count).

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers.dart';
 import '../services/ai.dart';
+import 'theme_picker.dart';
 
 class AiSettingsScreen extends ConsumerStatefulWidget {
   const AiSettingsScreen({super.key});
@@ -162,6 +163,10 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
             maxLines: 4,
             decoration: const InputDecoration(hintText: 'You are …'),
           ),
+          const SizedBox(height: 32),
+          const Text('theme', style: _labelStyle),
+          const SizedBox(height: 8),
+          const ThemePicker(),
           const SizedBox(height: 32),
         ],
       ),

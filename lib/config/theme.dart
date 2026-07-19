@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Doom One dark palette — matches user's nvim colorscheme.
+import 'themes.dart';
+
+/// Static Doom One colors (kept for backward compatibility across the code
+/// base). Use [AppTheme.dark] for the dynamic version driven by ThemeManager.
 class AppTheme {
   static const base = Color(0xFF282C34);
   static const surface = Color(0xFF21242B);
@@ -13,55 +16,55 @@ class AppTheme {
   static const error = Color(0xFFFF6C6B);
   static const accent = Color(0xFFC678DD);
 
-  static ThemeData dark() {
+  static ThemeData dark([AppPalette p = kDoomOne]) {
     final scheme = ColorScheme.dark(
-      surface: surface,
-      primary: primary,
-      secondary: accent,
-      error: error,
-      onSurface: text,
-      onPrimary: base,
+      surface: p.surface,
+      primary: p.primary,
+      secondary: p.accent,
+      error: p.error,
+      onSurface: p.text,
+      onPrimary: p.base,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme.copyWith(
-        surface: base,
-        surfaceContainer: surface,
-        surfaceContainerHigh: overlay,
-        surfaceContainerHighest: overlay,
-        onSurface: text,
-        outline: overlay,
-        outlineVariant: overlay,
+        surface: p.base,
+        surfaceContainer: p.surface,
+        surfaceContainerHigh: p.overlay,
+        surfaceContainerHighest: p.overlay,
+        onSurface: p.text,
+        outline: p.overlay,
+        outlineVariant: p.overlay,
       ),
-      scaffoldBackgroundColor: base,
-      canvasColor: base,
-      dialogTheme: const DialogThemeData(
-        backgroundColor: surface,
+      scaffoldBackgroundColor: p.base,
+      canvasColor: p.base,
+      dialogTheme: DialogThemeData(
+        backgroundColor: p.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
-      cardTheme: const CardThemeData(
-        color: surface,
+      cardTheme: CardThemeData(
+        color: p.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
       ),
-      bottomAppBarTheme: const BottomAppBarThemeData(color: base),
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: base,
+      bottomAppBarTheme: BottomAppBarThemeData(color: p.base),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: p.base,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: primary,
+        indicatorColor: p.primary,
       ),
-      chipTheme: const ChipThemeData(
-        backgroundColor: surface,
-        selectedColor: primary,
+      chipTheme: ChipThemeData(
+        backgroundColor: p.surface,
+        selectedColor: p.primary,
         surfaceTintColor: Colors.transparent,
-        side: BorderSide(color: overlay),
+        side: BorderSide(color: p.overlay),
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: base,
-        foregroundColor: text,
+      appBarTheme: AppBarTheme(
+        backgroundColor: p.base,
+        foregroundColor: p.text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -69,32 +72,32 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
-        hintStyle: const TextStyle(color: muted),
+        fillColor: p.surface,
+        hintStyle: TextStyle(color: p.muted),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: overlay),
+          borderSide: BorderSide(color: p.overlay),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: overlay),
+          borderSide: BorderSide(color: p.overlay),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: primary, width: 2),
+          borderSide: BorderSide(color: p.primary, width: 2),
         ),
       ),
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: text),
-        bodyMedium: TextStyle(color: text),
-        titleLarge: TextStyle(color: text, fontWeight: FontWeight.bold),
-        titleMedium: TextStyle(color: text, fontWeight: FontWeight.w600),
+      textTheme: TextTheme(
+        bodyLarge: TextStyle(color: p.text),
+        bodyMedium: TextStyle(color: p.text),
+        titleLarge: TextStyle(color: p.text, fontWeight: FontWeight.bold),
+        titleMedium: TextStyle(color: p.text, fontWeight: FontWeight.w600),
       ),
-      iconTheme: const IconThemeData(color: text),
-      dividerColor: overlay,
+      iconTheme: IconThemeData(color: p.text),
+      dividerColor: p.overlay,
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: surface,
-        contentTextStyle: const TextStyle(color: text),
+        backgroundColor: p.surface,
+        contentTextStyle: TextStyle(color: p.text),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),

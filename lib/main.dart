@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'config/env.dart';
 import 'config/theme.dart';
+import 'config/themes.dart';
 import 'providers.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
@@ -26,15 +29,32 @@ Future<void> main() async {
   runApp(const ProviderScope(child: SyncNoteApp()));
 }
 
-class SyncNoteApp extends ConsumerWidget {
+class SyncNoteApp extends ConsumerStatefulWidget {
   const SyncNoteApp({super.key});
+  @override
+  ConsumerState<SyncNoteApp> createState() => _SyncNoteAppState();
+}
+
+class _SyncNoteAppState extends ConsumerState<SyncNoteApp> {
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString('palette_id') ?? 'doom-one';
+    if (mounted) ref.read(paletteIdProvider.notifier).state = id;
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final id = ref.watch(paletteIdProvider);
     return MaterialApp(
       title: 'SyncNote',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.dark(paletteById(id)),
       home: const _AuthGate(),
     );
   }

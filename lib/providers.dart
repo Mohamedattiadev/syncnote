@@ -49,6 +49,8 @@ final notesStreamProvider = StreamProvider<List<Note>>(
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
+final paletteIdProvider = StateProvider<String>((ref) => 'doom-one');
+
 final aiSettingsStoreProvider = Provider<AiSettingsStore>((ref) => AiSettingsStore());
 
 final aiConfigProvider = FutureProvider<AiConfig?>((ref) async {
