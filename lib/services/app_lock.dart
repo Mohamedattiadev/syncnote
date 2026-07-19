@@ -41,6 +41,8 @@ class AppLock {
     try {
       return await _auth.authenticate(
         localizedReason: 'Unlock SyncNote',
+        biometricOnly: false, // allow device PIN as fallback
+        persistAcrossBackgrounding: true,
       );
     } catch (_) {
       return false;

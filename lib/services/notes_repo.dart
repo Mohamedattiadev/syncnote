@@ -108,11 +108,11 @@ class SupabaseNotesRepo implements NotesRepo {
     // Write to cache first — instant UI feedback + offline survival
     unawaited(LocalCache.upsert(note));
     try {
-      await _client.from('notes').insert(note.toMap());
+      await _insertWithFallback(note.toMap());
     } catch (e) {
       // Offline — queue for later sync
       unawaited(LocalCache.queueOp(
-          op: 'insert', noteId: note.id, payload: note.toMap()));
+          op: 'insert', noteId: note.id, payload: _sanitize(note.toMap())));
     }
     return note;
   }
@@ -122,11 +122,51 @@ class SupabaseNotesRepo implements NotesRepo {
     final updated = n.copyWith(updatedAt: DateTime.now().toUtc());
     unawaited(LocalCache.upsert(updated));
     try {
-      await _client.from('notes').update(updated.toMap()).eq('id', n.id);
+      await _updateWithFallback(updated.toMap(), n.id);
     } catch (e) {
       unawaited(LocalCache.queueOp(
-          op: 'update', noteId: n.id, payload: updated.toMap()));
+          op: 'update', noteId: n.id, payload: _sanitize(updated.toMap())));
     }
+  }
+
+  Future<void> _insertWithFallback(Map<String, dynamic> m) async {
+    try {
+      await _client.from('notes').insert(_sanitize(m));
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('PGRST204') || msg.contains("Could not find the '")) {
+        _pinnedMissing = true;
+        await _client.from('notes').insert(_sanitize(m));
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> _updateWithFallback(Map<String, dynamic> m, String id) async {
+    try {
+      await _client.from('notes').update(_sanitize(m)).eq('id', id);
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('PGRST204') || msg.contains("Could not find the '")) {
+        _pinnedMissing = true;
+        await _client.from('notes').update(_sanitize(m)).eq('id', id);
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  // Older Supabase schemas don't have the `pinned` column. Retrying after
+  // stripping it lets the app work without forcing users to run the
+  // add-pinned migration first. Once they run the migration the field is
+  // sent as normal.
+  static bool _pinnedMissing = false;
+  Map<String, dynamic> _sanitize(Map<String, dynamic> m) {
+    if (!_pinnedMissing) return m;
+    final copy = Map<String, dynamic>.of(m);
+    copy.remove('pinned');
+    return copy;
   }
 
   @override

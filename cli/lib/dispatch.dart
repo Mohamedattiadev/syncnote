@@ -1020,11 +1020,11 @@ DispatchResult _searchMode(AppState s, Key k) {
     if (s.listCursor < f.length - 1) s.listCursor++;
     return DispatchResult.none;
   }
-  if (k.name == 'ctrl+p') {
+  if (k.name == 'ctrl+p' || k.name == 'ctrl+k') {
     if (s.listCursor > 0) s.listCursor--;
     return DispatchResult.none;
   }
-  if (k.name == 'ctrl+n') {
+  if (k.name == 'ctrl+n' || k.name == 'ctrl+j') {
     final f = s.filtered();
     if (s.listCursor < f.length - 1) s.listCursor++;
     return DispatchResult.none;
