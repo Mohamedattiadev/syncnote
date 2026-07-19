@@ -452,15 +452,47 @@ List<String> _renderDetail(AppState s, int w, int bodyH) {
   final bodyLines = s.bodyBuf.lines;
   final avail = bodyH - 5;
   final scroll = s.bodyBuf.cursor.row < avail ? 0 : s.bodyBuf.cursor.row - avail + 3;
+
+  // Minimap on right edge — only if body has more lines than avail
+  final showMinimap = bodyLines.length > avail && w >= 60;
+  final minimapW = showMinimap ? 2 : 0;
+  final textW = w - minimapW;
+
   for (int i = 0; i < avail; i++) {
     final li = scroll + i;
+    String bodyRow;
     if (li >= bodyLines.length) {
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '   ~' + _r(), w));
+      bodyRow = _padRight(_c(Colors.muted, Colors.bgBase) + '   ~' + _r(), textW);
     } else {
-      rows.add(_bodyLine(s, li, bodyLines[li], w));
+      bodyRow = _bodyLine(s, li, bodyLines[li], textW);
     }
+    if (showMinimap) {
+      bodyRow = bodyRow + _minimapCell(s, i, avail, bodyLines.length, scroll);
+    }
+    rows.add(bodyRow);
   }
   return rows;
+}
+
+/// Renders one column of the minimap. Position shows where we are relative
+/// to total; density shows content on that row range.
+String _minimapCell(AppState s, int row, int visRows, int total, int scroll) {
+  final linesPerCell = (total / visRows).ceil().clamp(1, total);
+  final startLine = row * linesPerCell;
+  final endLine = ((row + 1) * linesPerCell).clamp(0, total);
+  // How dense is this range?
+  int density = 0;
+  for (int i = startLine; i < endLine && i < s.bodyBuf.lines.length; i++) {
+    if (s.bodyBuf.lines[i].trim().isNotEmpty) density++;
+  }
+  final cursorLine = s.bodyBuf.cursor.row;
+  final inViewport = cursorLine >= startLine && cursorLine < endLine;
+  final char = inViewport
+      ? _c(Colors.primary, Colors.bgOverlay) + '▎' + _r()
+      : density > linesPerCell * 0.5
+          ? _c(Colors.muted, Colors.bgOverlay) + '│' + _r()
+          : _c(Colors.muted, Colors.bgOverlay) + '│' + _r();
+  return ' ' + char;
 }
 
 String _fieldRow(AppState s, String label, String value, bool active, int w) {

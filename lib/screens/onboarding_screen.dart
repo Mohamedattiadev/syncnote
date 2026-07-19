@@ -116,7 +116,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class _Slide extends StatelessWidget {
+class _Slide extends StatefulWidget {
   final IconData icon;
   final Color accent;
   final String title;
@@ -127,45 +127,88 @@ class _Slide extends StatelessWidget {
     required this.title,
     required this.subtitle,
   });
+  @override
+  State<_Slide> createState() => _SlideState();
+}
+
+class _SlideState extends State<_Slide> with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Icon(icon, size: 48, color: accent),
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) {
+        final t = Curves.easeOutCubic.transform(_c.value);
+        return Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Transform.scale(
+                scale: 0.7 + t * 0.3,
+                child: Transform.rotate(
+                  angle: (1 - t) * -0.3,
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: widget.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Icon(widget.icon, size: 48, color: widget.accent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Transform.translate(
+                offset: Offset(0, (1 - t) * 20),
+                child: Opacity(
+                  opacity: t,
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.text,
+                      height: 1.1,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Transform.translate(
+                offset: Offset(0, (1 - t) * 30),
+                child: Opacity(
+                  opacity: t,
+                  child: Text(
+                    widget.subtitle,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppTheme.muted,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 32),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.text,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppTheme.muted,
-              height: 1.6,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

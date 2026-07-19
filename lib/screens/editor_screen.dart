@@ -262,16 +262,32 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextField(
-                    controller: _title,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    decoration: const InputDecoration(
-                      hintText: 'title',
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
+                  Hero(
+                    tag: 'note-title-${widget.note?.id ?? "new"}',
+                    flightShuttleBuilder: (_, _, _, _, _) => Material(
+                      color: Colors.transparent,
+                      child: Text(
+                        _title.text.isEmpty ? 'title' : _title.text,
+                        style: const TextStyle(
+                            color: AppTheme.text,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: TextField(
+                        controller: _title,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        decoration: const InputDecoration(
+                          hintText: 'title',
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: false,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                     ),
                   ),
                   const Divider(color: AppTheme.overlay, height: 20),

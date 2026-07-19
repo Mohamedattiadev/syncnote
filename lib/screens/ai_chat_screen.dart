@@ -369,8 +369,17 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                       if (i < _messages.length) {
                         return _Bubble(
                           msg: _messages[i],
-                          onCopy: () => Clipboard.setData(
-                              ClipboardData(text: _messages[i].content)),
+                          onCopy: () {
+                            HapticFeedback.selectionClick();
+                            Clipboard.setData(
+                              ClipboardData(text: _messages[i].content));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('copied'),
+                                duration: Duration(milliseconds: 900),
+                              ),
+                            );
+                          },
                           onRetry: i == _messages.length - 1 &&
                                   _messages[i].role == 'assistant'
                               ? _retry

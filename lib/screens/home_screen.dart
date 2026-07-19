@@ -428,15 +428,29 @@ class _NoteTile extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      note.title.isEmpty ? '(untitled)' : note.title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15.5,
-                          height: 1.2,
-                          letterSpacing: -0.1),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Hero(
+                      tag: 'note-title-${note.id}',
+                      flightShuttleBuilder: (_, _, _, _, _) => Material(
+                        color: Colors.transparent,
+                        child: Text(
+                          note.title.isEmpty ? '(untitled)' : note.title,
+                          style: const TextStyle(
+                              color: AppTheme.text,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15.5,
+                              letterSpacing: -0.1),
+                        ),
+                      ),
+                      child: Text(
+                        note.title.isEmpty ? '(untitled)' : note.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15.5,
+                            height: 1.2,
+                            letterSpacing: -0.1),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     if (note.body.isNotEmpty) ...[
                       const SizedBox(height: 4),
