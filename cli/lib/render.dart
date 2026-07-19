@@ -28,6 +28,11 @@ String _r() => sty(['0']);
 Frame renderFrame(AppState s, int w, int h) {
   final rows = <String>[];
 
+  // Help overlay pre-empts everything.
+  if (s.showHelp) {
+    return _renderHelp(s, w, h);
+  }
+
   // top bar (2 rows)
   rows.add(_topBar(s, w));
   rows.add(_divider(s, w));
@@ -114,6 +119,74 @@ String _topBar(AppState s, int w) {
 String _divider(AppState s, int w) {
   return _c(Colors.muted, Colors.bgBase) + '─' * w + _r();
 }
+
+// ---------- help overlay ----------
+
+Frame _renderHelp(AppState s, int w, int h) {
+  final rows = <String>[];
+  final content = _helpText();
+  rows.add(_padRight(_c(Colors.black, Colors.bgAccent) + '  ✦ SyncNote help — press ? or Esc to close  ' + _r(), w));
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '─' * w + _r(), w));
+  for (final line in content) {
+    if (rows.length >= h - 1) break;
+    rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + '  ' + line + _r(), w));
+  }
+  while (rows.length < h - 1) {
+    rows.add(_padRight('', w));
+  }
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + ' press ? or Esc to close' + _r(), w));
+  return Frame(rows);
+}
+
+List<String> _helpText() => [
+      '',
+      sty([Colors.accent]) + 'MOTION' + sty(['0']),
+      '  h j k l         move left/down/up/right',
+      '  w b e           word forward / back / end',
+      '  0  \$            line start / end',
+      '  gg / G          top / bottom',
+      '  H / L           5x up / down (or field prev/next in detail)',
+      '  <tab>hjkl       jump 5 cells',
+      '  Ctrl+d / Ctrl+u half-page down/up',
+      '',
+      sty([Colors.accent]) + 'EDITING' + sty(['0']),
+      '  i / I / a / A   insert · at cursor / line start / after / line end',
+      '  o / O           new line below / above',
+      '  v / V           visual char / visual line',
+      '  y / d / c       yank / delete / change (works with motion or visual)',
+      '  yy / dd / cc    apply to whole line',
+      '  x               delete char under cursor',
+      '  p               paste from register',
+      '  u               undo',
+      '  Ctrl+r          redo',
+      '',
+      sty([Colors.accent]) + 'NAVIGATION' + sty(['0']),
+      '  Enter           open selected note',
+      '  Tab             cycle fields (in detail)',
+      '  q               back / quit (with confirm)',
+      '  Esc             cancel current mode',
+      '',
+      sty([Colors.accent]) + 'LEADER  (space)' + sty(['0']),
+      '  <space>q        quit',
+      '  <space>w        save note',
+      '  <space>e        toggle tree pane',
+      '  <space>a        AI chat',
+      '  <space>bd       delete note',
+      '  <space>bn       new note',
+      '  <space>fg / ff  search notes',
+      '  <space>r        reload from server',
+      '',
+      sty([Colors.accent]) + 'SEARCH / COMMAND' + sty(['0']),
+      '  /               search filter',
+      '  :               command line',
+      '  :q :w :wq :new :del :reload :search :help',
+      '',
+      sty([Colors.accent]) + 'CHAT' + sty(['0']),
+      '  Enter           send',
+      '  Ctrl+W          toggle notes ↔ web mode',
+      '  Ctrl+L          clear conversation',
+      '  Esc             back to list',
+    ];
 
 // ---------- responsive layout ----------
 

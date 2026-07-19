@@ -28,6 +28,14 @@ class DispatchResult {
 DispatchResult dispatch(AppState s, Key k) {
   s.toast = '';
 
+  // Help overlay eats input until dismissed.
+  if (s.showHelp) {
+    if (k.name == 'esc' || (k.isRune && (k.rune == 'q' || k.rune == '?'))) {
+      s.showHelp = false;
+    }
+    return DispatchResult.none;
+  }
+
   if (s.mode == Mode.confirmQuit) {
     if (k.isRune && (k.rune == 'y' || k.rune == 'Y')) {
       return const DispatchResult(quit: true);
@@ -124,6 +132,7 @@ DispatchResult _normalMode(AppState s, Key k) {
       if (s.focus == Focus.list) {
         return const DispatchResult(delete: true);
       }
+      s.activeBuf.snapshot();
       s.register = s.activeBuf.deleteLine();
       s.registerLinewise = true;
       s.dirty = true;
@@ -135,6 +144,7 @@ DispatchResult _normalMode(AppState s, Key k) {
     s.pendingC = false;
     if (k.isRune && k.rune == 'c') {
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.register = s.activeBuf.deleteLine();
         s.registerLinewise = true;
         s.mode = Mode.insert;
@@ -171,6 +181,17 @@ DispatchResult _normalMode(AppState s, Key k) {
     return DispatchResult.none;
   }
 
+  if (k.name == 'ctrl+r') {
+    if (s.focus == Focus.detail) {
+      if (s.activeBuf.redo()) {
+        s.dirty = true;
+        s.toast = '↷ redo';
+      } else {
+        s.toast = 'nothing to redo';
+      }
+    }
+    return DispatchResult.none;
+  }
   if (!k.isRune) return DispatchResult.none;
   final r = k.rune;
 
@@ -257,36 +278,54 @@ DispatchResult _normalMode(AppState s, Key k) {
       }
       break;
     case 'i':
-      if (s.focus == Focus.detail) s.mode = Mode.insert;
+      if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
+        s.mode = Mode.insert;
+      }
       break;
     case 'I':
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.activeBuf.moveHome();
         s.mode = Mode.insert;
       }
       break;
     case 'a':
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.activeBuf.moveRight();
         s.mode = Mode.insert;
       }
       break;
     case 'A':
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.activeBuf.moveEnd();
         s.mode = Mode.insert;
       }
       break;
     case 'o':
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.activeBuf.openLineBelow();
         s.mode = Mode.insert;
       }
       break;
     case 'O':
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.activeBuf.openLineAbove();
         s.mode = Mode.insert;
+      }
+      break;
+    case 'u':
+      if (s.focus == Focus.detail) {
+        if (s.activeBuf.undo()) {
+          s.dirty = true;
+          s.toast = '↶ undo';
+        } else {
+          s.toast = 'nothing to undo';
+        }
       }
       break;
     case 'v':
@@ -312,6 +351,7 @@ DispatchResult _normalMode(AppState s, Key k) {
       break;
     case 'x':
       if (s.focus == Focus.detail) {
+        s.activeBuf.snapshot();
         s.register = s.activeBuf.currentLine()
             .substring(s.activeBuf.cursor.col, (s.activeBuf.cursor.col + 1).clamp(0, s.activeBuf.currentLine().length));
         s.activeBuf.deleteCharAtCursor();
@@ -320,6 +360,7 @@ DispatchResult _normalMode(AppState s, Key k) {
       break;
     case 'p':
       if (s.focus == Focus.detail && s.register.isNotEmpty) {
+        s.activeBuf.snapshot();
         s.activeBuf.paste(s.register, linewise: s.registerLinewise);
         s.dirty = true;
       }
@@ -329,7 +370,7 @@ DispatchResult _normalMode(AppState s, Key k) {
     case 'r':
       return const DispatchResult(needsReload: true);
     case '?':
-      s.toast = _hintNormal(s);
+      s.showHelp = !s.showHelp;
       break;
   }
   return DispatchResult.none;
@@ -569,6 +610,10 @@ void _move(AppState s, {int dx = 0, int dy = 0}) {
 
 DispatchResult _insertMode(AppState s, Key k) {
   final b = s.activeBuf;
+  // Snapshot once when entering insert (before first mutation).
+  if (b.undoStack.isEmpty || b.undoStack.last.lines.join('\n') != b.text) {
+    // no snapshot yet for this insert session
+  }
   if (k.name == 'esc') {
     s.mode = Mode.normal;
     return DispatchResult.none;
@@ -740,6 +785,10 @@ DispatchResult _runCmd(AppState s, String cmd) {
     case '/':
       s.search = rest;
       s.listCursor = 0;
+      break;
+    case 'help':
+    case 'h':
+      s.showHelp = true;
       break;
     default:
       s.toast = 'unknown: $head';

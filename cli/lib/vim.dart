@@ -22,11 +22,47 @@ class Pos {
 }
 
 /// Vim-style text buffer for a single field (title or body).
+/// Snapshot for undo history — immutable.
+class BufferSnapshot {
+  final List<String> lines;
+  final Pos cursor;
+  const BufferSnapshot(this.lines, this.cursor);
+}
+
 class Buffer {
   List<String> lines;
   Pos cursor = Pos.zero();
   Pos? anchor; // start of visual selection
   Mode selMode = Mode.normal;
+
+  /// Undo/redo stacks — cap history to avoid memory blowup.
+  final List<BufferSnapshot> undoStack = [];
+  final List<BufferSnapshot> redoStack = [];
+  static const int _maxHistory = 200;
+
+  void snapshot() {
+    undoStack.add(BufferSnapshot(List.of(lines), Pos(cursor.row, cursor.col)));
+    if (undoStack.length > _maxHistory) undoStack.removeAt(0);
+    redoStack.clear();
+  }
+
+  bool undo() {
+    if (undoStack.isEmpty) return false;
+    redoStack.add(BufferSnapshot(List.of(lines), Pos(cursor.row, cursor.col)));
+    final s = undoStack.removeLast();
+    lines = List.of(s.lines);
+    cursor = Pos(s.cursor.row, s.cursor.col);
+    return true;
+  }
+
+  bool redo() {
+    if (redoStack.isEmpty) return false;
+    undoStack.add(BufferSnapshot(List.of(lines), Pos(cursor.row, cursor.col)));
+    final s = redoStack.removeLast();
+    lines = List.of(s.lines);
+    cursor = Pos(s.cursor.row, s.cursor.col);
+    return true;
+  }
 
   Buffer(this.lines) {
     if (lines.isEmpty) lines = [''];

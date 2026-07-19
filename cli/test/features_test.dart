@@ -197,6 +197,57 @@ void main() {
     });
   });
 
+  group('Undo/redo', () {
+    test('u undoes an edit; Ctrl+R redoes it', () {
+      final s = _state();
+      dispatch(s, const Key('enter')); // open detail
+      dispatch(s, rune('i')); // insert mode (takes snapshot)
+      dispatch(s, rune('X'));
+      dispatch(s, rune('Y'));
+      dispatch(s, const Key('esc'));
+      expect(s.bodyBuf.text.contains('XY'), isTrue);
+      dispatch(s, rune('u'));
+      expect(s.bodyBuf.text.contains('XY'), isFalse); // undone
+      dispatch(s, const Key('ctrl+r'));
+      expect(s.bodyBuf.text.contains('XY'), isTrue); // redone
+    });
+
+    test('u without history shows toast', () {
+      final s = _state();
+      dispatch(s, const Key('enter'));
+      dispatch(s, rune('u'));
+      expect(s.toast, contains('nothing to undo'));
+    });
+  });
+
+  group('Help overlay', () {
+    test('? toggles help', () {
+      final s = _state();
+      dispatch(s, rune('?'));
+      expect(s.showHelp, isTrue);
+      dispatch(s, const Key('esc'));
+      expect(s.showHelp, isFalse);
+    });
+
+    test(':help opens help', () {
+      final s = _state();
+      dispatch(s, rune(':'));
+      for (final c in 'help'.split('')) {
+        dispatch(s, rune(c));
+      }
+      dispatch(s, const Key('enter'));
+      expect(s.showHelp, isTrue);
+    });
+
+    test('help absorbs input until dismissed', () {
+      final s = _state();
+      s.showHelp = true;
+      dispatch(s, rune('j'));
+      expect(s.listCursor, 0); // motion ignored
+      expect(s.showHelp, isTrue);
+    });
+  });
+
   group('RAG builder', () {
     test('empty notes → tells LLM to say so', () {
       final p = buildNotesSystemPrompt('anything', []);

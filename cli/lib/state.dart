@@ -59,6 +59,7 @@ class AppState {
   bool dirty = false;
 
   bool quit = false;
+  bool showHelp = false;
 
   // ---- Chat state ----
   List<ChatMsg> chat = [];
