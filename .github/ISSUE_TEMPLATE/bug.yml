@@ -1,0 +1,57 @@
+name: 🐛 Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where?
+      options:
+        - CLI (terminal)
+        - Flutter web
+        - Flutter Android
+        - Flutter Linux
+        - Flutter iOS
+        - Flutter macOS
+        - Flutter Windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered list of exactly what you did.
+      placeholder: |
+        1. Open the CLI
+        2. Press `<space>a` to open chat
+        3. Type "hi" + Enter
+        4. Nothing happens
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Version + environment
+      description: OS, terminal, syncnote --version if CLI
+      placeholder: Arch Linux, Alacritty, syncnote 0.2.0
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot (drag+drop)

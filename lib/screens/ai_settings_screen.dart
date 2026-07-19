@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers.dart';
 import '../services/ai.dart';
+import '../services/backup.dart';
+import 'tasks_screen.dart';
 import 'theme_picker.dart';
 
 class AiSettingsScreen extends ConsumerStatefulWidget {
@@ -168,7 +170,90 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
           const SizedBox(height: 8),
           const ThemePicker(),
           const SizedBox(height: 32),
+          const Text('tools', style: _labelStyle),
+          const SizedBox(height: 8),
+          _ToolTile(
+            icon: Icons.task_alt,
+            title: 'Tasks',
+            subtitle: 'View all checkboxes across notes',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TasksScreen()),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _ToolTile(
+            icon: Icons.download,
+            title: 'Export backup',
+            subtitle: 'Download all notes as a .zip',
+            onTap: () async {
+              try {
+                final path = await BackupService(ref.read(notesRepoProvider))
+                    .saveExport();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('exported to $path')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('export failed: $e')),
+                  );
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  const _ToolTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.overlay),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.muted, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(subtitle, style: const TextStyle(
+                        color: AppTheme.muted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppTheme.muted, size: 18),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: syncnote-linux-x64
+          - os: macos-latest
+            artifact: syncnote-macos
+          - os: windows-latest
+            artifact: syncnote-windows.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - working-directory: cli
+        run: dart pub get
+      - working-directory: cli
+        shell: bash
+        run: |
+          mkdir -p ../out
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            dart compile exe bin/syncnote.dart -o ../out/${{ matrix.artifact }}
+          else
+            dart compile exe bin/syncnote.dart -o ../out/${{ matrix.artifact }}
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: out/${{ matrix.artifact }}
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+      - run: flutter pub get
+      - run: flutter build web --release
+      - name: Zip web build
+        run: cd build/web && zip -r ../../syncnote-web.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syncnote-web
+          path: syncnote-web.zip
+
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syncnote-android.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  release:
+    needs: [build, web, android-apk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Flatten
+        run: |
+          mkdir final
+          find dist -type f -exec cp {} final/ \;
+          ls final/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: final/*
+          generate_release_notes: true
+          draft: false

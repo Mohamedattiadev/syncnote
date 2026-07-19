@@ -1,0 +1,38 @@
+name: 💡 Feature request
+description: Suggest something new
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve?
+      description: Focus on the pain, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Your proposal
+      description: How you think it should work. UX sketches welcome.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Where?
+      multiple: true
+      options:
+        - CLI
+        - Flutter web
+        - Flutter mobile
+        - Backend / Supabase
+        - Docs
+
+  - type: checkboxes
+    id: check
+    attributes:
+      label: Before submitting
+      options:
+        - label: I read PLAN.md and this isn't already scheduled
+          required: true
+        - label: I'd be willing to help implement it
