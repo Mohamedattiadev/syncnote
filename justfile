@@ -43,9 +43,11 @@ cli:
     cd cli && dart run bin/syncnote.dart
 
 # Compile CLI to native binary at ./bin/syncnote
+# Uses temp path + mv so it works even when the current binary is running.
 cli-build:
     mkdir -p bin
-    cd cli && dart compile exe bin/syncnote.dart -o ../bin/syncnote
+    cd cli && dart compile exe bin/syncnote.dart -o ../bin/syncnote.new
+    mv -f bin/syncnote.new bin/syncnote 2>/dev/null || (echo "bin/syncnote busy — kept as bin/syncnote.new; rerun after quitting current session")
     @echo "binary: bin/syncnote"
 
 # Install CLI binary to ~/.local/bin/syncnote (in PATH)
