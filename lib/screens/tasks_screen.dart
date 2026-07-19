@@ -117,7 +117,7 @@ class _TaskRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onToggle,
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppTheme.overlay),
@@ -128,7 +128,7 @@ class _TaskRow extends StatelessWidget {
               Icon(
                 task.done ? Icons.check_box : Icons.check_box_outline_blank,
                 color: task.done ? AppTheme.success : AppTheme.muted,
-                size: 22,
+                size: 20,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -144,7 +144,7 @@ class _TaskRow extends StatelessWidget {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     InkWell(
                       onTap: onOpenNote,
                       child: Row(
@@ -199,7 +199,7 @@ class _Empty extends StatelessWidget {
                     color: AppTheme.text,
                     fontSize: 18,
                     fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             const Text(
               'add `- [ ] task` to any note\n'
               'or `- [x]` to mark it done',
@@ -209,7 +209,7 @@ class _Empty extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: AppTheme.overlay,
                 borderRadius: BorderRadius.circular(8),

@@ -1,3 +1,11 @@
+// Editor — Notion-block layout.
+//   * No appbar in focus mode (minimal floating focus toggle only).
+//   * 24pt semi-bold title, tracking -0.01em, auto-focus on empty note.
+//   * Body line-height 1.7 for breathe.
+//   * Tags as chip-list at BOTTOM.
+//   * Meta footer sticky at bottom with wider padding.
+//   * Floating pill toolbar above keyboard on mobile.
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -21,13 +29,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   late final TextEditingController _title;
   late final TextEditingController _body;
   late final TextEditingController _tagsCtrl;
+  late final FocusNode _titleFocus;
+  late final FocusNode _bodyFocus;
   bool _dirty = false;
   bool _saving = false;
   bool _preview = false;
   bool _focusMode = false;
   Timer? _autoSaveTimer;
   DateTime? _lastSaved;
-  Note? _editingNote; // real-time updated after auto-save (for note-not-yet-created case)
+  Note? _editingNote; // real-time updated after auto-save
 
   @override
   void initState() {
@@ -35,10 +45,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _title = TextEditingController(text: widget.note?.title ?? '');
     _body = TextEditingController(text: widget.note?.body ?? '');
     _tagsCtrl = TextEditingController(text: widget.note?.tags.join(', ') ?? '');
+    _titleFocus = FocusNode();
+    _bodyFocus = FocusNode();
     _editingNote = widget.note;
     for (final c in [_title, _body, _tagsCtrl]) {
       c.addListener(_onEdit);
     }
+    // Auto-focus title on new/empty note.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final t = widget.note?.title ?? '';
+      if (t.trim().isEmpty) {
+        _titleFocus.requestFocus();
+      }
+    });
   }
 
   void _onEdit() {
@@ -51,7 +71,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     if (_saving) return;
     final title = _title.text.trim();
     final bodyText = _body.text;
-    if (title.isEmpty && bodyText.trim().isEmpty) return; // don't save empty
+    if (title.isEmpty && bodyText.trim().isEmpty) return;
     final tags = _tagsCtrl.text
         .split(',')
         .map((t) => t.trim())
@@ -81,24 +101,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           _lastSaved = DateTime.now();
         });
       }
-    } catch (_) {
-      // silent — user still sees dirty indicator
-    }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
-    // Flush a final save if dirty (fire and forget).
     if (_dirty) unawaited(_autoSave());
     _title.dispose();
     _body.dispose();
     _tagsCtrl.dispose();
+    _titleFocus.dispose();
+    _bodyFocus.dispose();
     super.dispose();
   }
 
-  /// Turn `- [ ] task` and `- [x] task` into markdown links so onTapLink fires.
-  /// Each task line gets href `task:<lineIdx>`.
   String _renderChecklistLine(String text) {
     final lines = text.split('\n');
     final out = <String>[];
@@ -140,23 +157,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     final replacement = '$before$selected$after';
     _body.value = TextEditingValue(
       text: text.replaceRange(start, end, replacement),
-      selection: TextSelection.collapsed(offset: start + before.length + selected.length),
+      selection: TextSelection.collapsed(
+          offset: start + before.length + selected.length),
     );
     setState(() => _dirty = true);
-  }
-
-  String _wordCount(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return '';
-    final words = trimmed.split(RegExp(r'\s+')).length;
-    final readMin = (words / 200).ceil();
-    return '$words w · ${readMin}m read';
   }
 
   void _prefixLine(String prefix) {
     final text = _body.text;
     final cur = _body.selection.baseOffset.clamp(0, text.length);
-    // Find start of current line
     var lineStart = cur;
     while (lineStart > 0 && text[lineStart - 1] != '\n') {
       lineStart--;
@@ -166,6 +175,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       selection: TextSelection.collapsed(offset: cur + prefix.length),
     );
     setState(() => _dirty = true);
+  }
+
+  String _wordCount(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return '0 w';
+    final words = trimmed.split(RegExp(r'\s+')).length;
+    final readMin = (words / 200).ceil();
+    return '$words w · ${readMin}m read';
   }
 
   Future<void> _save() async {
@@ -209,6 +226,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 900;
     return PopScope(
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, _) async {
@@ -218,8 +236,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           builder: (_) => AlertDialog(
             title: const Text('discard changes?'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('keep editing')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('discard')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('keep editing')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('discard')),
             ],
           ),
         );
@@ -227,223 +249,302 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (ok == true) Navigator.of(context).pop();
       },
       child: Scaffold(
-        bottomNavigationBar: _editingNote == null || _focusMode
+        appBar: _focusMode
+            ? null
+            : AppBar(
+                title: Row(
+                  children: [
+                    Text(widget.note == null ? 'new note' : 'edit'),
+                    const SizedBox(width: 8),
+                    Text(
+                      _wordCount(_body.text),
+                      style: const TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+                actions: [
+                  _SaveStatus(
+                      dirty: _dirty, lastSaved: _lastSaved, saving: _saving),
+                  const SizedBox(width: 4),
+                  if (_editingNote != null)
+                    IconButton(
+                      icon: Icon(
+                        _editingNote!.pinned
+                            ? Icons.push_pin
+                            : Icons.push_pin_outlined,
+                        color:
+                            _editingNote!.pinned ? AppTheme.warning : null,
+                      ),
+                      tooltip: _editingNote!.pinned ? 'unpin' : 'pin',
+                      onPressed: () async {
+                        final updated = _editingNote!
+                            .copyWith(pinned: !_editingNote!.pinned);
+                        setState(() => _editingNote = updated);
+                        await ref
+                            .read(notesRepoProvider)
+                            .update(updated);
+                      },
+                    ),
+                  IconButton(
+                    icon: Icon(_preview ? Icons.edit_note : Icons.visibility),
+                    tooltip: _preview ? 'edit' : 'preview',
+                    onPressed: () => setState(() => _preview = !_preview),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.fullscreen),
+                    tooltip: 'focus mode',
+                    onPressed: () => setState(() => _focusMode = true),
+                  ),
+                  if (_saving)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: AppTheme.primary),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.check, color: AppTheme.success),
+                      tooltip: 'save',
+                      onPressed: _save,
+                    ),
+                ],
+              ),
+        bottomNavigationBar: (_editingNote == null || _focusMode)
             ? null
             : _MetaFooter(note: _editingNote!),
-        appBar: AppBar(
-          title: Row(
-            children: [
-              Text(widget.note == null ? 'new note' : 'edit'),
-              const SizedBox(width: 8),
-              Text(
-                _wordCount(_body.text),
-                style: const TextStyle(
-                    color: AppTheme.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-          actions: [
-            _SaveStatus(dirty: _dirty, lastSaved: _lastSaved, saving: _saving),
-            const SizedBox(width: 4),
-            if (_editingNote != null)
-              IconButton(
-                icon: Icon(
-                  _editingNote!.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                  color: _editingNote!.pinned ? AppTheme.warning : null,
-                ),
-                tooltip: _editingNote!.pinned ? 'unpin' : 'pin',
-                onPressed: () async {
-                  final updated = _editingNote!.copyWith(pinned: !_editingNote!.pinned);
-                  setState(() => _editingNote = updated);
-                  await ref.read(notesRepoProvider).update(updated);
-                },
-              ),
-            _MdButton(icon: Icons.format_bold, tooltip: 'bold', onTap: () => _wrap('**', '**')),
-            _MdButton(icon: Icons.format_italic, tooltip: 'italic', onTap: () => _wrap('_', '_')),
-            _MdButton(icon: Icons.code, tooltip: 'code', onTap: () => _wrap('`', '`')),
-            _MdButton(icon: Icons.title, tooltip: 'heading', onTap: () => _prefixLine('## ')),
-            _MdButton(icon: Icons.format_list_bulleted, tooltip: 'list', onTap: () => _prefixLine('- ')),
-            _MdButton(icon: Icons.check_box_outlined, tooltip: 'task', onTap: () => _prefixLine('- [ ] ')),
-            _MdButton(icon: Icons.link, tooltip: 'link', onTap: () => _wrap('[', '](url)')),
-            IconButton(
-              icon: Icon(_preview ? Icons.edit_note : Icons.visibility),
-              tooltip: _preview ? 'edit' : 'preview',
-              onPressed: () => setState(() => _preview = !_preview),
-            ),
-            IconButton(
-              icon: Icon(_focusMode ? Icons.fullscreen_exit : Icons.fullscreen),
-              tooltip: _focusMode ? 'exit focus mode' : 'focus mode',
-              onPressed: () => setState(() => _focusMode = !_focusMode),
-            ),
-            if (_saving)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
-                ),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.check, color: AppTheme.success),
-                tooltip: 'save',
-                onPressed: _save,
-              ),
-          ],
-        ),
         body: CallbackShortcuts(
           bindings: {
-            const SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
+            const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+                _save,
             const SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
-            const SingleActivator(LogicalKeyboardKey.keyB, control: true):
-                () => _wrap('**', '**'),
-            const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
-                () => _wrap('**', '**'),
-            const SingleActivator(LogicalKeyboardKey.keyI, control: true):
-                () => _wrap('_', '_'),
-            const SingleActivator(LogicalKeyboardKey.keyI, meta: true):
-                () => _wrap('_', '_'),
-            const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-                () => _wrap('[', '](url)'),
-            const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-                () => _wrap('[', '](url)'),
-            const SingleActivator(LogicalKeyboardKey.keyE, control: true):
-                () => setState(() => _preview = !_preview),
-            const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
-                () => setState(() => _preview = !_preview),
+            const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+                _wrap('**', '**'),
+            const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+                _wrap('**', '**'),
+            const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+                _wrap('_', '_'),
+            const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+                _wrap('_', '_'),
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+                _wrap('[', '](url)'),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
+                _wrap('[', '](url)'),
+            const SingleActivator(LogicalKeyboardKey.keyE, control: true): () =>
+                setState(() => _preview = !_preview),
+            const SingleActivator(LogicalKeyboardKey.keyE, meta: true): () =>
+                setState(() => _preview = !_preview),
           },
-          child: Focus(
-            autofocus: true,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!_focusMode) Hero(
-                    tag: 'note-title-${widget.note?.id ?? "new"}',
-                    flightShuttleBuilder: (_, _, _, _, _) => Material(
-                      color: Colors.transparent,
-                      child: Text(
-                        _title.text.isEmpty ? 'title' : _title.text,
-                        style: const TextStyle(
-                            color: AppTheme.text,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold),
+          child: Stack(
+            children: [
+              SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxContent = isWide ? 780.0 : constraints.maxWidth;
+                    final horizPad = isWide ? 32.0 : 20.0;
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxContent),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(
+                              horizPad,
+                              _focusMode ? 24 : 16,
+                              horizPad,
+                              120),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Hero(
+                                tag:
+                                    'note-title-${widget.note?.id ?? "new"}',
+                                flightShuttleBuilder:
+                                    (_, _, _, _, _) => Material(
+                                  color: Colors.transparent,
+                                  child: Text(
+                                    _title.text.isEmpty
+                                        ? 'Untitled'
+                                        : _title.text,
+                                    style: const TextStyle(
+                                        color: AppTheme.text,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: -0.24),
+                                  ),
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: TextField(
+                                    controller: _title,
+                                    focusNode: _titleFocus,
+                                    style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: -0.24,
+                                        height: 1.25),
+                                    textInputAction: TextInputAction.next,
+                                    onSubmitted: (_) =>
+                                        _bodyFocus.requestFocus(),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Untitled',
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      filled: false,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                height: 1,
+                                color: AppTheme.overlay
+                                    .withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(height: 20),
+                              _preview
+                                  ? _buildPreview()
+                                  : TextField(
+                                      controller: _body,
+                                      focusNode: _bodyFocus,
+                                      maxLines: null,
+                                      keyboardType: TextInputType.multiline,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        height: 1.7,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'Start writing…',
+                                        hintStyle: TextStyle(
+                                          color: AppTheme.muted
+                                              .withValues(alpha: 0.6),
+                                          height: 1.7,
+                                          fontSize: 16,
+                                        ),
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                        filled: false,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                    ),
+                              const SizedBox(height: 32),
+                              _TagsChipInput(controller: _tagsCtrl),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                    );
+                  },
+                ),
+              ),
+              if (_focusMode)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: SafeArea(
                     child: Material(
-                      color: Colors.transparent,
-                      child: TextField(
-                        controller: _title,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                        decoration: const InputDecoration(
-                          hintText: 'title',
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
-                          contentPadding: EdgeInsets.zero,
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(9999),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(9999),
+                        onTap: () => setState(() => _focusMode = false),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(9999),
+                            border: Border.all(color: AppTheme.overlay),
+                          ),
+                          child: const Icon(Icons.fullscreen_exit,
+                              color: AppTheme.muted, size: 18),
                         ),
                       ),
                     ),
                   ),
-                  if (!_focusMode) const Divider(color: AppTheme.overlay, height: 20),
-                  if (!_focusMode) TextField(
-                    controller: _tagsCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'tags (comma-separated)',
-                      prefixIcon: Icon(Icons.tag, size: 18),
+                ),
+              if (!_focusMode)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Center(child: _FloatingToolbar(
+                        onBold: () => _wrap('**', '**'),
+                        onItalic: () => _wrap('_', '_'),
+                        onCode: () => _wrap('`', '`'),
+                        onH: () => _prefixLine('## '),
+                        onList: () => _prefixLine('- '),
+                        onTask: () => _prefixLine('- [ ] '),
+                        onLink: () => _wrap('[', '](url)'),
+                      )),
                     ),
                   ),
-                  if (!_focusMode) const SizedBox(height: 12),
-                  Expanded(
-                    child: _preview
-                        ? Container(
-                            decoration: BoxDecoration(
-                              color: AppTheme.surface,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.overlay),
-                            ),
-                            padding: const EdgeInsets.all(16),
-                            child: SelectionArea(
-                              child: Markdown(
-                                data: _body.text.isEmpty
-                                    ? '_(empty)_'
-                                    : _renderChecklistLine(_body.text),
-                                onTapLink: (text, href, title) {
-                                  if (href != null && href.startsWith('task:')) {
-                                    _toggleTask(int.parse(href.substring(5)));
-                                  }
-                                },
-                                styleSheet: MarkdownStyleSheet(
-                                  p: const TextStyle(
-                                      color: AppTheme.text, height: 1.5),
-                                  h1: const TextStyle(
-                                      color: AppTheme.accent,
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.bold),
-                                  h2: const TextStyle(
-                                      color: AppTheme.accent,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold),
-                                  h3: const TextStyle(
-                                      color: AppTheme.primary,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold),
-                                  code: const TextStyle(
-                                      color: AppTheme.warning,
-                                      backgroundColor: AppTheme.base,
-                                      fontFamily: 'monospace'),
-                                  codeblockDecoration: BoxDecoration(
-                                    color: AppTheme.base,
-                                    borderRadius:
-                                        BorderRadius.circular(6),
-                                  ),
-                                  a: const TextStyle(
-                                      color: AppTheme.primary,
-                                      decoration:
-                                          TextDecoration.underline),
-                                  blockquoteDecoration: const BoxDecoration(
-                                    border: Border(
-                                        left: BorderSide(
-                                            color: AppTheme.accent,
-                                            width: 3)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                        : TextField(
-                            controller: _body,
-                            maxLines: null,
-                            expands: true,
-                            textAlignVertical: TextAlignVertical.top,
-                            style: const TextStyle(height: 1.5),
-                            decoration: InputDecoration(
-                              hintText: 'start typing…\n\n'
-                                  '# Heading\n'
-                                  '**bold**  _italic_  `code`\n'
-                                  '- list\n'
-                                  '- [ ] task\n'
-                                  '[[link to another note]]',
-                              hintStyle: TextStyle(
-                                color: AppTheme.muted.withValues(alpha: 0.5),
-                                height: 1.5,
-                                fontFamily: 'monospace',
-                                fontSize: 12,
-                              ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              filled: false,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreview() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.overlay),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: SelectionArea(
+        child: Markdown(
+          data: _body.text.isEmpty
+              ? '_(empty)_'
+              : _renderChecklistLine(_body.text),
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          onTapLink: (text, href, title) {
+            if (href != null && href.startsWith('task:')) {
+              _toggleTask(int.parse(href.substring(5)));
+            }
+          },
+          styleSheet: MarkdownStyleSheet(
+            p: const TextStyle(color: AppTheme.text, fontSize: 16, height: 1.7),
+            h1: const TextStyle(
+                color: AppTheme.accent,
+                fontSize: 28,
+                fontWeight: FontWeight.bold),
+            h2: const TextStyle(
+                color: AppTheme.accent,
+                fontSize: 22,
+                fontWeight: FontWeight.bold),
+            h3: const TextStyle(
+                color: AppTheme.primary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold),
+            code: const TextStyle(
+                color: AppTheme.warning,
+                backgroundColor: AppTheme.base,
+                fontFamily: 'monospace'),
+            codeblockDecoration: BoxDecoration(
+              color: AppTheme.base,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            a: const TextStyle(
+                color: AppTheme.primary,
+                decoration: TextDecoration.underline),
+            blockquoteDecoration: const BoxDecoration(
+              border: Border(
+                  left: BorderSide(color: AppTheme.accent, width: 4)),
             ),
           ),
         ),
@@ -452,11 +553,176 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 }
 
+class _FloatingToolbar extends StatelessWidget {
+  final VoidCallback onBold, onItalic, onCode, onH, onList, onTask, onLink;
+  const _FloatingToolbar({
+    required this.onBold,
+    required this.onItalic,
+    required this.onCode,
+    required this.onH,
+    required this.onList,
+    required this.onTask,
+    required this.onLink,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(9999),
+        border: Border.all(color: AppTheme.overlay),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _pill(Icons.format_bold, 'bold', onBold),
+          _pill(Icons.format_italic, 'italic', onItalic),
+          _pill(Icons.code, 'code', onCode),
+          _pill(Icons.title, 'heading', onH),
+          _pill(Icons.format_list_bulleted, 'list', onList),
+          _pill(Icons.check_box_outlined, 'task', onTask),
+          _pill(Icons.link, 'link', onLink),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(IconData icon, String tip, VoidCallback onTap) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      tooltip: tip,
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      color: AppTheme.text,
+    );
+  }
+}
+
+class _TagsChipInput extends StatefulWidget {
+  final TextEditingController controller;
+  const _TagsChipInput({required this.controller});
+  @override
+  State<_TagsChipInput> createState() => _TagsChipInputState();
+}
+
+class _TagsChipInputState extends State<_TagsChipInput> {
+  bool _adding = false;
+  final _addCtrl = TextEditingController();
+
+  List<String> _parse() => widget.controller.text
+      .split(',')
+      .map((t) => t.trim())
+      .where((t) => t.isNotEmpty)
+      .toList();
+
+  void _write(List<String> tags) {
+    widget.controller.text = tags.join(', ');
+  }
+
+  @override
+  void dispose() {
+    _addCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tags = _parse();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final t in tags)
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(9999),
+              border: Border.all(color: AppTheme.overlay),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('#$t',
+                    style: const TextStyle(
+                        color: AppTheme.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(width: 4),
+                InkWell(
+                  onTap: () => setState(
+                      () => _write(tags.where((x) => x != t).toList())),
+                  borderRadius: BorderRadius.circular(9999),
+                  child: const Icon(Icons.close,
+                      size: 12, color: AppTheme.muted),
+                ),
+              ],
+            ),
+          ),
+        if (_adding)
+          SizedBox(
+            width: 140,
+            child: TextField(
+              controller: _addCtrl,
+              autofocus: true,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: 'new tag',
+                isDense: true,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              onSubmitted: (v) {
+                final t = v.trim();
+                if (t.isNotEmpty && !tags.contains(t)) {
+                  tags.add(t);
+                  _write(tags);
+                }
+                _addCtrl.clear();
+                setState(() => _adding = false);
+              },
+            ),
+          )
+        else
+          InkWell(
+            onTap: () => setState(() => _adding = true),
+            borderRadius: BorderRadius.circular(9999),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(9999),
+                border: Border.all(color: AppTheme.overlay),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, size: 12, color: AppTheme.muted),
+                  SizedBox(width: 4),
+                  Text('add tag',
+                      style: TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _SaveStatus extends StatelessWidget {
   final bool dirty;
   final bool saving;
   final DateTime? lastSaved;
-  const _SaveStatus({required this.dirty, required this.saving, this.lastSaved});
+  const _SaveStatus(
+      {required this.dirty, required this.saving, this.lastSaved});
   @override
   Widget build(BuildContext context) {
     IconData icon;
@@ -493,22 +759,6 @@ class _SaveStatus extends StatelessWidget {
   }
 }
 
-class _MdButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  const _MdButton({required this.icon, required this.tooltip, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon, size: 18),
-      tooltip: tooltip,
-      onPressed: onTap,
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
 class _MetaFooter extends StatelessWidget {
   final Note note;
   const _MetaFooter({required this.note});
@@ -517,7 +767,8 @@ class _MetaFooter extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: AppTheme.overlay)),
         ),
@@ -526,17 +777,19 @@ class _MetaFooter extends StatelessWidget {
             const Icon(Icons.access_time, size: 12, color: AppTheme.muted),
             const SizedBox(width: 4),
             Text('updated ${_ago(note.updatedAt)}',
-                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
-            const SizedBox(width: 12),
+                style: const TextStyle(
+                    color: AppTheme.muted, fontSize: 12)),
+            const SizedBox(width: 16),
             const Icon(Icons.tag, size: 12, color: AppTheme.muted),
             const SizedBox(width: 4),
             Text('${note.tags.length}',
-                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                style: const TextStyle(
+                    color: AppTheme.muted, fontSize: 12)),
             const Spacer(),
-            Text(note.id.substring(0, 8),
+            Text(note.id.length >= 8 ? note.id.substring(0, 8) : note.id,
                 style: const TextStyle(
                     color: AppTheme.muted,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontFamily: 'monospace')),
           ],
         ),

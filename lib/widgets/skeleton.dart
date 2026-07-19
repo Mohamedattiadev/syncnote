@@ -11,7 +11,7 @@ class SkeletonBox extends StatefulWidget {
     super.key,
     this.width,
     this.height = 16,
-    this.radius = 6,
+    this.radius = 8,
   });
 
   @override
@@ -69,16 +69,16 @@ class NoteSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.overlay),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SkeletonBox(width: 18, height: 18, radius: 4),
+          const SkeletonBox(width: 20, height: 20, radius: 4),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

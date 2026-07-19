@@ -1,4 +1,5 @@
-// Bottom-nav shell. Chat is the home tab.
+// App shell — left rail on wide screens (>=900), bottom nav on mobile.
+// Sections: Chat · Notes · Tasks · Stats · Settings.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,10 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
 import '../providers.dart';
+import '../widgets/left_rail.dart';
 import 'ai_chat_screen.dart';
 import 'ai_settings_screen.dart';
 import 'command_palette.dart';
 import 'home_screen.dart';
+import 'stats_screen.dart';
 import 'tasks_screen.dart';
 
 class MainShell extends ConsumerStatefulWidget {
@@ -19,16 +22,49 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  int _idx = 0; // 0=chat, 1=notes, 2=tasks, 3=settings
+  int _idx = 0; // 0=chat, 1=notes, 2=tasks, 3=stats, 4=settings
 
   @override
   Widget build(BuildContext context) {
     final notesAsync = ref.watch(notesStreamProvider);
     final noteCount = notesAsync.asData?.value.length ?? 0;
     final taskCount = notesAsync.asData?.value.fold<int>(0, (a, n) {
-          final undone = RegExp(r'^\s*-\s+\[ \]', multiLine: true).allMatches(n.body).length;
+          final undone =
+              RegExp(r'^\s*-\s+\[ \]', multiLine: true).allMatches(n.body).length;
           return a + undone;
-        }) ?? 0;
+        }) ??
+        0;
+    final wide = MediaQuery.of(context).size.width >= 900;
+    // Bottom nav has 4 slots (chat/notes/tasks/settings), rail has 5 (adds stats).
+    // On mobile we collapse Stats into Settings menu (unchanged behaviour).
+    final bottomIdx = _idx > 3 ? 3 : _idx;
+
+    Widget content = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.02),
+            end: Offset.zero,
+          ).animate(anim),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(_idx),
+        child: switch (_idx) {
+          0 => const AiChatScreen(),
+          1 => const HomeScreen(),
+          2 => const TasksScreen(),
+          3 => wide ? const StatsScreen() : const AiSettingsScreen(),
+          _ => const AiSettingsScreen(),
+        },
+      ),
+    );
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -46,36 +82,27 @@ class _MainShellState extends ConsumerState<MainShell> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            body: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.02),
-                    end: Offset.zero,
-                  ).animate(anim),
-                  child: child,
-                ),
-              ),
-              child: KeyedSubtree(
-                key: ValueKey(_idx),
-                child: switch (_idx) {
-                  0 => const AiChatScreen(),
-                  1 => const HomeScreen(),
-                  2 => const TasksScreen(),
-                  _ => const AiSettingsScreen(),
-                },
-              ),
-            ),
-            bottomNavigationBar: _BottomNav(
-              current: _idx,
-              onTap: (i) => setState(() => _idx = i),
-              noteBadge: noteCount,
-              taskBadge: taskCount,
-            ),
+            body: wide
+                ? Row(
+                    children: [
+                      LeftRail(
+                        current: _idx,
+                        onTap: (i) => setState(() => _idx = i),
+                        noteBadge: noteCount,
+                        taskBadge: taskCount,
+                      ),
+                      Expanded(child: content),
+                    ],
+                  )
+                : content,
+            bottomNavigationBar: wide
+                ? null
+                : _BottomNav(
+                    current: bottomIdx,
+                    onTap: (i) => setState(() => _idx = i == 3 ? 4 : i),
+                    noteBadge: noteCount,
+                    taskBadge: taskCount,
+                  ),
           ),
         ),
       ),
@@ -101,10 +128,10 @@ class _BottomNav extends StatelessWidget {
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-        height: 62,
+        height: 64,
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: AppTheme.overlay, width: 1),
         ),
         child: Row(
@@ -181,12 +208,14 @@ class _NavItem extends StatelessWidget {
                     top: -4,
                     right: -8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         color: AppTheme.accent,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(9999),
                       ),
-                      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                      constraints:
+                          const BoxConstraints(minWidth: 12, minHeight: 12),
                       child: Text(
                         badge! > 99 ? '99+' : '$badge',
                         style: const TextStyle(
@@ -204,19 +233,19 @@ class _NavItem extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 11,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 letterSpacing: 0.2,
                 color: selected ? AppTheme.text : AppTheme.muted,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Container(
               width: 20,
               height: 2,
               decoration: BoxDecoration(
                 color: selected ? AppTheme.primary : Colors.transparent,
-                borderRadius: BorderRadius.circular(1),
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
           ],
