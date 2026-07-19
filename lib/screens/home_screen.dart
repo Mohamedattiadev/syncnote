@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,11 +19,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchCtrl = TextEditingController();
   NoteKind? _filter;
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSearch(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 180), () {
+      ref.read(searchQueryProvider.notifier).state = v;
+    });
   }
 
   @override
@@ -123,18 +134,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
                   child: TextField(
                     controller: _searchCtrl,
-                    onChanged: (v) =>
-                        ref.read(searchQueryProvider.notifier).state = v,
+                    onChanged: _onSearch,
                     decoration: InputDecoration(
                       hintText: 'search notes…',
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: query.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                ref.read(searchQueryProvider.notifier).state = '';
-                              },
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                notesAsync.when(
+                                  loading: () => const SizedBox.shrink(),
+                                  error: (_, _) => const SizedBox.shrink(),
+                                  data: (n) => Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Text(
+                                      '${_apply(n, query).length}',
+                                      style: const TextStyle(
+                                          color: AppTheme.accent,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  onPressed: () {
+                                    HapticFeedback.selectionClick();
+                                    _searchCtrl.clear();
+                                    _onSearch('');
+                                  },
+                                ),
+                              ],
                             )
                           : null,
                       isDense: true,

@@ -37,7 +37,10 @@ Frame renderFrame(AppState s, int w, int h) {
   rows.add(_brandBar(s, w));
   rows.add(_thinRule(w));
 
-  final bodyH = h - 5;
+  // Chrome: brand(1) + rule(1) + rule(1) + statusline(1) = 4 rows.
+  // bodyH = h - 4 so total rows fills terminal exactly and statusline
+  // lands on the last row (h-1), where the cursor calc points.
+  final bodyH = h - 4;
   final layout = _computeLayout(s, w);
   final treeW = layout.tree;
   final previewW = layout.preview;
