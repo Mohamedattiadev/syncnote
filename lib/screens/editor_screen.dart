@@ -346,9 +346,24 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                             expands: true,
                             textAlignVertical: TextAlignVertical.top,
                             style: const TextStyle(height: 1.5),
-                            decoration: const InputDecoration(
-                              hintText:
-                                  'write your note (markdown supported)…',
+                            decoration: InputDecoration(
+                              hintText: 'start typing…\n\n'
+                                  '# Heading\n'
+                                  '**bold**  _italic_  `code`\n'
+                                  '- list\n'
+                                  '- [ ] task\n'
+                                  '[[link to another note]]',
+                              hintStyle: TextStyle(
+                                color: AppTheme.muted.withValues(alpha: 0.5),
+                                height: 1.5,
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              filled: false,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
                   ),

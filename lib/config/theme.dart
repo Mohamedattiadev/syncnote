@@ -96,10 +96,16 @@ class AppTheme {
       iconTheme: IconThemeData(color: p.text),
       dividerColor: p.overlay,
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: p.surface,
-        contentTextStyle: TextStyle(color: p.text),
+        backgroundColor: p.overlay,
+        contentTextStyle: TextStyle(
+            color: p.text, fontSize: 13, fontWeight: FontWeight.w500),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: p.overlay),
+        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       ),
     );
   }

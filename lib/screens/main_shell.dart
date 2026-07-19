@@ -39,14 +39,29 @@ class _MainShellState extends ConsumerState<MainShell> {
         child: Focus(
           autofocus: true,
           child: Scaffold(
-            body: IndexedStack(
-              index: _idx,
-              children: const [
-                AiChatScreen(),
-                HomeScreen(),
-                TasksScreen(),
-                AiSettingsScreen(),
-              ],
+            body: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.02),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(_idx),
+                child: switch (_idx) {
+                  0 => const AiChatScreen(),
+                  1 => const HomeScreen(),
+                  2 => const TasksScreen(),
+                  _ => const AiSettingsScreen(),
+                },
+              ),
             ),
             bottomNavigationBar: _BottomNav(
               current: _idx,

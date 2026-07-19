@@ -9,6 +9,7 @@ import '../providers.dart';
 import '../services/ai.dart';
 import '../services/ai_actions.dart';
 import '../services/rag.dart';
+import '../widgets/typing_dots.dart';
 import 'ai_settings_screen.dart';
 import 'editor_screen.dart';
 
@@ -378,6 +379,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                               ? () => _saveMessageAsNote(_messages[i].content)
                               : null,
                         );
+                      }
+                      if ((_streaming ?? '').isEmpty) {
+                        return const _TypingBubble();
                       }
                       return _Bubble(
                         msg: ChatMessage('assistant', _streaming ?? ''),
@@ -803,6 +807,40 @@ class _Composer extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 12,
+            backgroundColor: AppTheme.accent,
+            child: Icon(Icons.auto_awesome, size: 14, color: AppTheme.base),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(4),
+                bottomRight: Radius.circular(16),
+              ),
+              border: Border.all(color: AppTheme.overlay),
+            ),
+            child: const TypingDots(),
+          ),
+        ],
       ),
     );
   }

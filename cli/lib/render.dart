@@ -115,6 +115,8 @@ int _visualListRow(int idx) => 2 + idx * 2;
 
 // -------- top bar --------
 
+const _spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
 String _brandBar(AppState s, int w) {
   // Colored logo dot + brand + subtle count
   final count = s.notes.length;
@@ -127,8 +129,15 @@ String _brandBar(AppState s, int w) {
       : '';
   final left = '  ' + logo + brand + countBadge;
 
-  final syncOK = _c(Colors.success, Colors.bgBase) + '●' + _r();
-  final right = syncOK + _c(Colors.muted, Colors.bgBase) + '  synced  ' + _r();
+  // Show spinner during pending chat (only long-running case in-app)
+  final busy = s.chatBusy;
+  final indicator = busy
+      ? _c(Colors.warn, Colors.bgBase) +
+          _spinnerFrames[(DateTime.now().millisecondsSinceEpoch ~/ 100) % _spinnerFrames.length] +
+          _r()
+      : _c(Colors.success, Colors.bgBase) + '●' + _r();
+  final rightLabel = busy ? 'thinking' : 'synced';
+  final right = indicator + _c(Colors.muted, Colors.bgBase) + '  ' + rightLabel + '  ' + _r();
   final gap = w - _len(left) - _len(right);
   return left + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + right;
 }

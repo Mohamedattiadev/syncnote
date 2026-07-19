@@ -78,10 +78,10 @@ Future<void> main(List<String> args) async {
   signals.add(
       ProcessSignal.sigwinch.watch().listen((_) => _draw(state)));
 
-  // Periodic redraws: splash animation + yank fade.
+  // Periodic redraws: splash animation + yank fade + chat spinner.
   Timer.periodic(const Duration(milliseconds: 100), (t) {
     if (state.quit) { t.cancel(); return; }
-    if (state.shouldShowSplash || state.yankActive) _draw(state);
+    if (state.shouldShowSplash || state.yankActive || state.chatBusy) _draw(state);
     if (!state.shouldShowSplash && !state.splashDismissed) {
       state.splashDismissed = true;
       _draw(state);
