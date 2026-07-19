@@ -1,5 +1,6 @@
 // Key dispatcher — maps Key events to state mutations. Pure functions where possible.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'ai.dart';
@@ -199,6 +200,9 @@ DispatchResult _normalMode(AppState s, Key k) {
       } else {
         s.activeBuf.moveTop();
       }
+    } else if (k.isRune && k.rune == 'x') {
+      // gx — open URL under cursor
+      _openUrlUnderCursor(s);
     }
     return DispatchResult.none;
   }
@@ -1034,6 +1038,59 @@ DispatchResult _runCmd(AppState s, String cmd) {
     return DispatchResult.none;
   }
 
+  // Web / external integrations
+  if (cmd.startsWith('o ') || cmd == 'o' || cmd.startsWith('open ') || cmd == 'open') {
+    final arg = cmd.contains(' ') ? cmd.substring(cmd.indexOf(' ') + 1).trim() : '';
+    if (arg.isEmpty) { s.toast = 'usage: :o <url>'; s.toastErr = true; return DispatchResult.none; }
+    _openUrl(s, arg);
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('import ')) {
+    _importUrl(s, cmd.substring(7).trim());
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('export ') || cmd == 'export') {
+    final arg = cmd.length > 7 ? cmd.substring(7).trim() : '';
+    _exportMarkdown(s, arg);
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('exporthtml ') || cmd == 'exporthtml') {
+    final arg = cmd.length > 11 ? cmd.substring(11).trim() : '';
+    _exportHtml(s, arg);
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('web ') || cmd == 'web') {
+    final q = cmd.length > 4 ? cmd.substring(4).trim() : '';
+    if (q.isEmpty) { s.toast = 'usage: :web <query>'; s.toastErr = true; return DispatchResult.none; }
+    _openUrl(s, 'https://duckduckgo.com/?q=${Uri.encodeQueryComponent(q)}');
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('cd ') || cmd == 'cd') {
+    final p = cmd.length > 3 ? cmd.substring(3).trim() : '';
+    _cd(s, p);
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('read ')) {
+    _readFile(s, cmd.substring(5).trim());
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('pipe ')) {
+    _pipeBuffer(s, cmd.substring(5).trim());
+    return DispatchResult.none;
+  }
+  if (cmd == 'copy' || cmd == 'yank') {
+    _clipCopy(s);
+    return DispatchResult.none;
+  }
+  if (cmd == 'paste') {
+    _clipPaste(s);
+    return DispatchResult.none;
+  }
+  if (cmd.startsWith('sh ')) {
+    _runShell(s, cmd.substring(3));
+    return DispatchResult.none;
+  }
+
   // :set <opt>
   if (cmd.startsWith('set ') || cmd == 'set') {
     return _runSet(s, cmd == 'set' ? '' : cmd.substring(4).trim());
@@ -1290,6 +1347,291 @@ void _runShell(AppState s, String shellCmd) {
     s.toast = 'shell err: $e';
     s.toastErr = true;
   }
+}
+
+// ---------------- Web / external helpers ----------------
+
+final RegExp urlRegex = RegExp(r'https?://[^\s<>()\[\]"]+');
+
+String? urlUnderCursor(String line, int col) {
+  for (final m in urlRegex.allMatches(line)) {
+    if (col >= m.start && col <= m.end) return m.group(0);
+  }
+  return null;
+}
+
+int countUrls(String text) => urlRegex.allMatches(text).length;
+
+String stripHtml(String html) {
+  var s = html.replaceAll(RegExp(r'<script[^>]*>[\s\S]*?</script>', caseSensitive: false), '');
+  s = s.replaceAll(RegExp(r'<style[^>]*>[\s\S]*?</style>', caseSensitive: false), '');
+  s = s.replaceAll(RegExp(r'<[^>]+>'), ' ');
+  s = s.replaceAll(RegExp(r'&nbsp;'), ' ');
+  s = s.replaceAll(RegExp(r'&amp;'), '&');
+  s = s.replaceAll(RegExp(r'&lt;'), '<');
+  s = s.replaceAll(RegExp(r'&gt;'), '>');
+  s = s.replaceAll(RegExp(r'&quot;'), '"');
+  s = s.replaceAll(RegExp(r'&#39;'), "'");
+  s = s.replaceAll(RegExp(r'\s+'), ' ');
+  return s.trim();
+}
+
+String slugify(String title) {
+  var s = title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+  s = s.replaceAll(RegExp(r'^-+|-+$'), '');
+  if (s.isEmpty) s = 'note';
+  return s;
+}
+
+String expandTilde(String p) {
+  if (!p.startsWith('~')) return p;
+  final home = Platform.environment['HOME'] ?? '';
+  return home + p.substring(1);
+}
+
+String _openerCmd() {
+  if (Platform.isMacOS) return 'open';
+  if (Platform.isWindows) return 'start';
+  return 'xdg-open';
+}
+
+void _openUrl(AppState s, String url) {
+  try {
+    Process.start(_openerCmd(), [url], mode: ProcessStartMode.detached);
+    s.toast = 'opened $url';
+  } catch (e) {
+    s.toast = 'open err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _openUrlUnderCursor(AppState s) {
+  if (s.focus != Focus.detail) { s.toast = 'gx needs editor'; s.toastErr = true; return; }
+  final b = s.activeBuf;
+  final url = urlUnderCursor(b.currentLine(), b.cursor.col);
+  if (url == null) { s.toast = 'no url under cursor'; s.toastErr = true; return; }
+  _openUrl(s, url);
+}
+
+void _importUrl(AppState s, String url) {
+  if (url.isEmpty) { s.toast = 'usage: :import <url>'; s.toastErr = true; return; }
+  try {
+    final client = HttpClient();
+    client.getUrl(Uri.parse(url)).then((req) => req.close()).then((resp) async {
+      final body = await resp.transform(const _Utf8Decoder()).join();
+      final titleMatch = RegExp(r'<title[^>]*>([\s\S]*?)</title>', caseSensitive: false).firstMatch(body);
+      final title = titleMatch != null ? stripHtml(titleMatch.group(1) ?? url) : url;
+      final text = stripHtml(body);
+      final excerpt = text.length > 4000 ? text.substring(0, 4000) : text;
+      final now = DateTime.now();
+      final firstUserId = s.notes.isNotEmpty ? s.notes.first.userId : '';
+      s.notes.insert(0, Note(
+        id: now.microsecondsSinceEpoch.toString(),
+        userId: firstUserId,
+        title: title,
+        body: '# $title\n\n<$url>\n\n$excerpt',
+        tags: ['imported'],
+        pinned: false,
+        createdAt: now,
+        updatedAt: now,
+      ));
+      s.toast = 'imported: $title';
+    }).catchError((e) {
+      s.toast = 'import err: $e';
+      s.toastErr = true;
+    });
+  } catch (e) {
+    s.toast = 'import err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _exportMarkdown(AppState s, String path) {
+  if (s.current == null) { s.toast = 'no note open'; s.toastErr = true; return; }
+  s.syncBufsToNote();
+  final n = s.current!;
+  final target = path.isEmpty
+      ? '${Platform.environment['HOME'] ?? '.'}/${slugify(n.title)}.md'
+      : expandTilde(path);
+  try {
+    final body = '# ${n.title}\n\ntags: ${n.tags.join(', ')}\n\n${n.body}\n';
+    File(target).writeAsStringSync(body);
+    s.toast = 'exported to $target';
+  } catch (e) {
+    s.toast = 'export err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _exportHtml(AppState s, String path) {
+  if (s.current == null) { s.toast = 'no note open'; s.toastErr = true; return; }
+  s.syncBufsToNote();
+  final n = s.current!;
+  final target = path.isEmpty
+      ? '${Platform.environment['HOME'] ?? '.'}/${slugify(n.title)}.html'
+      : expandTilde(path);
+  final esc = (String x) => x
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+  try {
+    final html = '''<!doctype html>
+<html><head><meta charset="utf-8"><title>${esc(n.title)}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;line-height:1.6;color:#222}pre{white-space:pre-wrap;background:#f6f8fa;padding:1rem;border-radius:8px}h1{border-bottom:1px solid #eee;padding-bottom:.4rem}.tags{color:#888;font-size:.9rem}</style>
+</head><body><h1>${esc(n.title)}</h1><div class="tags">${esc(n.tags.join(', '))}</div><pre>${esc(n.body)}</pre></body></html>''';
+    File(target).writeAsStringSync(html);
+    s.toast = 'exported html to $target';
+  } catch (e) {
+    s.toast = 'export err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _cd(AppState s, String p) {
+  final path = p.isEmpty ? (Platform.environment['HOME'] ?? '.') : expandTilde(p);
+  try {
+    Directory.current = path;
+    s.toast = 'cwd: ${Directory.current.path}';
+  } catch (e) {
+    s.toast = 'cd err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _readFile(AppState s, String p) {
+  if (s.focus != Focus.detail) { s.toast = ':read needs editor'; s.toastErr = true; return; }
+  try {
+    final txt = File(expandTilde(p)).readAsStringSync();
+    final b = s.activeBuf;
+    b.snapshot();
+    for (final ch in txt.split('')) {
+      if (ch == '\n') { b.insertNewline(); } else { b.insertRune(ch); }
+    }
+    s.dirty = true;
+    s.toast = 'read ${txt.length} chars';
+  } catch (e) {
+    s.toast = 'read err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _pipeBuffer(AppState s, String cmd) {
+  if (s.focus != Focus.detail) { s.toast = ':pipe needs editor'; s.toastErr = true; return; }
+  if (cmd.isEmpty) { s.toast = 'usage: :pipe <cmd>'; s.toastErr = true; return; }
+  try {
+    final b = s.activeBuf;
+    final proc = Process.runSync('sh', ['-c', cmd]);
+    // Fallback: write via shell echo pipe since runSync has no stdin
+    final tmp = File('${Directory.systemTemp.path}/syncnote-pipe-${DateTime.now().microsecondsSinceEpoch}.txt');
+    tmp.writeAsStringSync(b.text);
+    final r = Process.runSync('sh', ['-c', 'cat "${tmp.path}" | $cmd']);
+    try { tmp.deleteSync(); } catch (_) {}
+    if (r.exitCode != 0) {
+      s.toast = 'pipe exit ${r.exitCode}';
+      s.toastErr = true;
+      return;
+    }
+    b.snapshot();
+    final out = (r.stdout as String);
+    b.lines = out.isEmpty ? [''] : out.split('\n');
+    if (b.lines.last.isEmpty && b.lines.length > 1) b.lines.removeLast();
+    b.cursor.row = 0;
+    b.cursor.col = 0;
+    s.dirty = true;
+    s.toast = 'piped ${b.text.length} chars';
+    // silence unused proc var
+    proc.exitCode;
+  } catch (e) {
+    s.toast = 'pipe err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _clipCopy(AppState s) {
+  final text = s.focus == Focus.detail ? s.activeBuf.text : (s.current?.body ?? '');
+  if (text.isEmpty) { s.toast = 'nothing to copy'; return; }
+  final tools = [
+    ['wl-copy', <String>[]],
+    ['xclip', ['-selection', 'clipboard']],
+    ['pbcopy', <String>[]],
+  ];
+  for (final t in tools) {
+    try {
+      final p = Process.runSync(
+          'sh', ['-c', 'command -v ${t[0]}'],
+          runInShell: false);
+      if (p.exitCode != 0) continue;
+      final proc = Process.runSync(t[0] as String, t[1] as List<String>);
+      // runSync no stdin — use shell pipe
+      final tmp = File('${Directory.systemTemp.path}/syncnote-clip-${DateTime.now().microsecondsSinceEpoch}.txt');
+      tmp.writeAsStringSync(text);
+      final r = Process.runSync('sh', ['-c', 'cat "${tmp.path}" | ${t[0]} ${(t[1] as List<String>).join(' ')}']);
+      try { tmp.deleteSync(); } catch (_) {}
+      if (r.exitCode == 0) {
+        s.toast = 'copied via ${t[0]}';
+        proc.exitCode;
+        return;
+      }
+    } catch (_) {}
+  }
+  // Fallback file
+  try {
+    File('/tmp/syncnote-clip.txt').writeAsStringSync(text);
+    s.toast = 'copied to /tmp/syncnote-clip.txt (no clipboard tool)';
+  } catch (e) {
+    s.toast = 'clip err: $e';
+    s.toastErr = true;
+  }
+}
+
+void _clipPaste(AppState s) {
+  if (s.focus != Focus.detail) { s.toast = ':paste needs editor'; s.toastErr = true; return; }
+  final tools = [
+    ['wl-paste', <String>[]],
+    ['xclip', ['-selection', 'clipboard', '-o']],
+    ['pbpaste', <String>[]],
+  ];
+  for (final t in tools) {
+    try {
+      final check = Process.runSync('sh', ['-c', 'command -v ${t[0]}']);
+      if (check.exitCode != 0) continue;
+      final r = Process.runSync(t[0] as String, t[1] as List<String>);
+      if (r.exitCode == 0) {
+        final b = s.activeBuf;
+        b.snapshot();
+        final txt = (r.stdout as String);
+        for (final ch in txt.split('')) {
+          if (ch == '\n') { b.insertNewline(); } else { b.insertRune(ch); }
+        }
+        s.dirty = true;
+        s.toast = 'pasted via ${t[0]}';
+        return;
+      }
+    } catch (_) {}
+  }
+  // Fallback file
+  try {
+    final txt = File('/tmp/syncnote-clip.txt').readAsStringSync();
+    final b = s.activeBuf;
+    b.snapshot();
+    for (final ch in txt.split('')) {
+      if (ch == '\n') { b.insertNewline(); } else { b.insertRune(ch); }
+    }
+    s.dirty = true;
+    s.toast = 'pasted from /tmp/syncnote-clip.txt';
+  } catch (e) {
+    s.toast = 'no clipboard: $e';
+    s.toastErr = true;
+  }
+}
+
+class _Utf8Decoder extends Converter<List<int>, String> {
+  const _Utf8Decoder();
+  @override
+  String convert(List<int> input) => utf8.decode(input, allowMalformed: true);
+  @override
+  Sink<List<int>> startChunkedConversion(Sink<String> sink) =>
+      utf8.decoder.startChunkedConversion(sink);
 }
 
 DispatchResult _runSet(AppState s, String opt) {

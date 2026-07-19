@@ -325,6 +325,18 @@ List<String> _helpText() => [
       '  :%s/pat/repl/[g]  substitute all',
       '  :set wrap|number  toggles',
       '  :pwd :!<cmd>      shell utilities',
+      '',
+      _b() + 'WEB / EXTERNAL',
+      '  gx                open URL under cursor',
+      '  :o :open <url>    open URL in browser',
+      '  :import <url>     fetch + create note',
+      '  :export [path]    write note as markdown',
+      '  :exporthtml [p]   write note as html',
+      '  :web <query>      duckduckgo search',
+      '  :cd [path]        change directory',
+      '  :read <path>      insert file at cursor',
+      '  :pipe <cmd>       filter buffer through cmd',
+      '  :copy :paste      system clipboard',
     ];
 
 // -------- layout --------
