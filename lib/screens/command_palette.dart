@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/note.dart';
 import '../providers.dart';
+import '../widgets/fade_scale_route.dart';
 import 'editor_screen.dart';
 
 /// A single command in the palette.
@@ -68,7 +69,7 @@ class _PaletteDialogState extends ConsumerState<_PaletteDialog> {
         subtitle: 'create a new note',
         action: () {
           Navigator.of(context).pop();
-          Navigator.of(context).push(MaterialPageRoute(
+          Navigator.of(context).push(FadeScalePageRoute(
               builder: (_) => const EditorScreen()));
         },
       )),
@@ -140,7 +141,7 @@ class _PaletteDialogState extends ConsumerState<_PaletteDialog> {
       case _ItemKind.note:
         Navigator.of(context).pop();
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => EditorScreen(note: item.note)),
+          FadeScalePageRoute(builder: (_) => EditorScreen(note: item.note)),
         );
         break;
     }

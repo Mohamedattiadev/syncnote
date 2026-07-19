@@ -1,9 +1,14 @@
+// First-run onboarding (UI_PLAN_V2 P1) — 3 full-bleed gradient slides.
+//
+// Placeholder illustrations use large Material icons over a hero gradient;
+// swap for real art later (see report TODO).
+
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/theme.dart';
 
-/// First-run onboarding — 3 slides then dismisses forever.
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onFinish;
   const OnboardingScreen({super.key, required this.onFinish});
@@ -22,193 +27,313 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
+class _SlideSpec {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String body;
+  final Color from;
+  final Color to;
+  const _SlideSpec({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.body,
+    required this.from,
+    required this.to,
+  });
+}
+
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
-  int _page = 0;
+  double _page = 0;
 
-  final _slides = const [
-    _Slide(
-      icon: Icons.notes_outlined,
-      accent: AppTheme.primary,
-      title: 'Your notes.\nEverywhere.',
-      subtitle: 'Write on your phone.\nEdit on your desktop.\nLive-sync via Supabase.',
+  static const _slides = <_SlideSpec>[
+    _SlideSpec(
+      icon: Icons.lightbulb_outline,
+      title: 'Capture\nEverything',
+      subtitle: 'Notes that follow you.',
+      body:
+          'Jot ideas, todos, and long-form thoughts from your phone or laptop. '
+          'Blocks, tags, and full-text search are baked in. '
+          'Everything you type is saved instantly — no manual sync, no losing work.',
+      from: AppTheme.primary,
+      to: AppTheme.accent,
     ),
-    _Slide(
+    _SlideSpec(
       icon: Icons.auto_awesome,
-      accent: AppTheme.accent,
-      title: 'Chat with\nyour notes.',
-      subtitle: 'AI that answers from YOUR notes.\nOne key, any model.\nBring your own.',
+      title: 'AI That Knows\nYour Notes',
+      subtitle: 'Bring your own model.',
+      body:
+          'Chat streams live against your own note corpus with retrieval built in. '
+          'Ask questions, summarise, draft new entries — all grounded in what you already wrote. '
+          'One key, any OpenRouter model.',
+      from: AppTheme.accent,
+      to: AppTheme.success,
     ),
-    _Slide(
-      icon: Icons.terminal,
-      accent: AppTheme.success,
-      title: 'Terminal\nnative.',
-      subtitle: 'Full vim editor in your shell.\nSame data, no rewrites.\nFor the keyboard people.',
+    _SlideSpec(
+      icon: Icons.cloud_sync_outlined,
+      title: 'Sync Across\nDevices',
+      subtitle: 'Same data, everywhere.',
+      body:
+          'Live Supabase sync keeps mobile, desktop, and the CLI in lockstep. '
+          'Edit anywhere — the change lands everywhere in under a second. '
+          'Offline drafts merge cleanly the moment you reconnect.',
+      from: AppTheme.success,
+      to: AppTheme.primary,
     ),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                itemCount: _slides.length,
-                onPageChanged: (i) => setState(() => _page = i),
-                itemBuilder: (context, i) => _slides[i],
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _slides.length,
-                (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: i == _page ? 24 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: i == _page ? AppTheme.primary : AppTheme.overlay,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  TextButton(
-                    onPressed: _finish,
-                    child: const Text('skip'),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: AppTheme.base,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    ),
-                    onPressed: _page < _slides.length - 1
-                        ? () => _controller.nextPage(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOut,
-                            )
-                        : _finish,
-                    child: Text(_page < _slides.length - 1 ? 'next  →' : 'get started  →'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _controller.addListener(() {
+      final p = _controller.page ?? 0;
+      if (p != _page) setState(() => _page = p);
+    });
   }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int get _currentPage => _page.round();
 
   Future<void> _finish() async {
     await OnboardingScreen.markDone();
     if (mounted) widget.onFinish();
   }
-}
-
-class _Slide extends StatefulWidget {
-  final IconData icon;
-  final Color accent;
-  final String title;
-  final String subtitle;
-  const _Slide({
-    required this.icon,
-    required this.accent,
-    required this.title,
-    required this.subtitle,
-  });
-  @override
-  State<_Slide> createState() => _SlideState();
-}
-
-class _SlideState extends State<_Slide> with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))
-      ..forward();
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) {
-        final t = Curves.easeOutCubic.transform(_c.value);
-        return Padding(
-          padding: const EdgeInsets.all(32),
+    return Scaffold(
+      backgroundColor: AppTheme.base,
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: _slides.length,
+            itemBuilder: (context, i) {
+              // Parallax scale on non-active pages.
+              final delta = (_page - i).abs().clamp(0.0, 1.0);
+              final scale = 1.0 - delta * 0.06;
+              final opacity = 1.0 - delta * 0.3;
+              return Opacity(
+                opacity: opacity,
+                child: Transform.scale(
+                  scale: scale,
+                  child: _Slide(spec: _slides[i], index: i),
+                ),
+              );
+            },
+          ),
+          // Skip — top right.
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 8,
+            child: TextButton(
+              onPressed: _finish,
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.text,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+              ),
+              child: const Text('skip',
+                  style:
+                      TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            ),
+          ),
+          // Bottom controls: dots + next/get-started.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_slides.length, (i) {
+                        final active = i == _currentPage;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: active ? 28 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: active
+                                ? AppTheme.text
+                                : AppTheme.overlay,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: _currentPage < _slides.length - 1
+                              ? () => _controller.nextPage(
+                                    duration:
+                                        const Duration(milliseconds: 320),
+                                    curve: Curves.easeOutCubic,
+                                  )
+                              : _finish,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.text,
+                            foregroundColor: AppTheme.base,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(
+                            _currentPage < _slides.length - 1
+                                ? 'next  →'
+                                : 'get started  →',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Slide extends StatelessWidget {
+  final _SlideSpec spec;
+  final int index;
+  const _Slide({required this.spec, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            spec.from.withValues(alpha: 0.9),
+            spec.to.withValues(alpha: 0.75),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 160),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Transform.scale(
-                scale: 0.7 + t * 0.3,
-                child: Transform.rotate(
-                  angle: (1 - t) * -0.3,
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    decoration: BoxDecoration(
-                      color: widget.accent.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Icon(widget.icon, size: 48, color: widget.accent),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Transform.translate(
-                offset: Offset(0, (1 - t) * 20),
-                child: Opacity(
-                  opacity: t,
-                  child: Text(
-                    widget.title,
-                    style: const TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.text,
-                      height: 1.1,
+              const Spacer(),
+              // Large placeholder illustration — icon 120px, muted white bg.
+              Center(
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: AppTheme.text.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(48),
+                    border: Border.all(
+                      color: AppTheme.text.withValues(alpha: 0.15),
+                      width: 1,
                     ),
                   ),
-                ),
+                  child: Icon(
+                    spec.icon,
+                    size: 120,
+                    color: AppTheme.text.withValues(alpha: 0.9),
+                  ),
+                )
+                    .animate(key: ValueKey('icon-$index'))
+                    .fadeIn(
+                        duration: const Duration(milliseconds: 420),
+                        curve: Curves.easeOutCubic)
+                    .scale(
+                        begin: const Offset(0.85, 0.85),
+                        end: const Offset(1, 1),
+                        duration: const Duration(milliseconds: 420),
+                        curve: Curves.easeOutCubic),
               ),
+              const SizedBox(height: 48),
+              Text(
+                spec.title,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.64, // -0.02em @ 32pt
+                  height: 1.1,
+                  color: AppTheme.text,
+                ),
+              )
+                  .animate(key: ValueKey('title-$index'))
+                  .fadeIn(
+                      duration: const Duration(milliseconds: 380),
+                      delay: const Duration(milliseconds: 80))
+                  .slideY(
+                      begin: 0.2,
+                      end: 0,
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutCubic),
+              const SizedBox(height: 12),
+              Text(
+                spec.subtitle,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.text.withValues(alpha: 0.85),
+                ),
+              )
+                  .animate(key: ValueKey('sub-$index'))
+                  .fadeIn(
+                      duration: const Duration(milliseconds: 380),
+                      delay: const Duration(milliseconds: 140))
+                  .slideY(
+                      begin: 0.2,
+                      end: 0,
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutCubic),
               const SizedBox(height: 16),
-              Transform.translate(
-                offset: Offset(0, (1 - t) * 30),
-                child: Opacity(
-                  opacity: t,
-                  child: Text(
-                    widget.subtitle,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: AppTheme.muted,
-                      height: 1.6,
-                    ),
-                  ),
+              Text(
+                spec.body,
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 1.5,
+                  color: AppTheme.text.withValues(alpha: 0.75),
                 ),
-              ),
+              )
+                  .animate(key: ValueKey('body-$index'))
+                  .fadeIn(
+                      duration: const Duration(milliseconds: 380),
+                      delay: const Duration(milliseconds: 200))
+                  .slideY(
+                      begin: 0.2,
+                      end: 0,
+                      duration: const Duration(milliseconds: 380),
+                      curve: Curves.easeOutCubic),
+              const Spacer(),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

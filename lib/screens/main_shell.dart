@@ -22,7 +22,17 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  int _idx = 0; // 0=chat, 1=notes, 2=tasks, 3=stats, 4=settings
+  int _idx = 1; // 1=notes (default). Chat (0) launches as a full-screen route.
+
+  /// Selecting Chat pushes the immersive full-screen route rather than
+  /// swapping it into the shell body (spec §9). All other tabs swap in place.
+  void _select(int i) {
+    if (i == 0) {
+      openAiChat(context);
+      return;
+    }
+    setState(() => _idx = i);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +66,9 @@ class _MainShellState extends ConsumerState<MainShell> {
       child: KeyedSubtree(
         key: ValueKey(_idx),
         child: switch (_idx) {
-          0 => const AiChatScreen(),
+          // Chat is launched as a full-screen route (spec §9 full immersion);
+          // when its tab is "selected" we just show notes underneath.
+          0 => const HomeScreen(),
           1 => const HomeScreen(),
           2 => const TasksScreen(),
           3 => wide ? const StatsScreen() : const AiSettingsScreen(),
@@ -87,7 +99,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                     children: [
                       LeftRail(
                         current: _idx,
-                        onTap: (i) => setState(() => _idx = i),
+                        onTap: _select,
                         noteBadge: noteCount,
                         taskBadge: taskCount,
                       ),
@@ -99,7 +111,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                 ? null
                 : _BottomNav(
                     current: bottomIdx,
-                    onTap: (i) => setState(() => _idx = i == 3 ? 4 : i),
+                    onTap: (i) => _select(i == 3 ? 4 : i),
                     noteBadge: noteCount,
                     taskBadge: taskCount,
                   ),
