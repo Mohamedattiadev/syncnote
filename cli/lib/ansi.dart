@@ -15,6 +15,19 @@ void hideCursor() => aw('${csi}?25l');
 void showCursor() => aw('${csi}?25h');
 void resetSgr() => aw('${csi}0m');
 
+/// Full terminal reset — used on exit to guarantee shell prompt returns cleanly.
+void terminalReset() {
+  aw('${csi}0m');    // reset SGR
+  aw('${csi}?25h');  // show cursor
+  aw('$esc[0 q');    // reset cursor shape
+  aw('${csi}?1049l'); // exit alt screen
+  aw('${csi}?1000l'); // disable mouse
+  aw('${csi}?2004l'); // disable bracketed paste
+  try {
+    stdout.flush();
+  } catch (_) {}
+}
+
 /// DECSCUSR — set cursor shape. 1=blink block, 2=steady block, 3=blink underline,
 /// 4=steady underline, 5=blink bar, 6=steady bar.
 void cursorBlock() => aw('$esc[2 q');

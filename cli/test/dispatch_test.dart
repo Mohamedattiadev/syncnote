@@ -5,7 +5,7 @@ import 'package:syncnote_cli/dispatch.dart';
 import 'package:syncnote_cli/keys.dart';
 import 'package:syncnote_cli/model.dart';
 import 'package:syncnote_cli/state.dart';
-import 'package:syncnote_cli/vim.dart';
+
 
 Key rune(String r) => Key('rune', r);
 

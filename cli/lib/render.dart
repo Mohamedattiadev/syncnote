@@ -25,13 +25,13 @@ class Frame {
 String _c(String fg, String bg) => sty([fg, bg]);
 String _r() => sty(['0']);
 String _b() => sty(['1']); // bold
-String _dim() => sty(['2']); // dim
 
 Frame renderFrame(AppState s, int w, int h) {
   final rows = <String>[];
 
   if (s.shouldShowSplash) return _renderSplash(s, w, h);
   if (s.showHelp) return _renderHelp(s, w, h);
+  if (s.mode == Mode.search) return _renderFzfSearch(s, w, h);
 
   // TOP BAR (2 rows: brand + divider)
   rows.add(_brandBar(s, w));
@@ -99,8 +99,6 @@ Frame renderFrame(AppState s, int w, int h) {
   return Frame(rows, cursorRow: cr, cursorCol: cc);
 }
 
-// Each list item takes 2 rows (title + meta). +2 for section header rows.
-int _visualListRow(int idx) => 2 + idx * 2;
 
 (int, int)? _detailCursorPosition(AppState s, int mainW) {
   final gutterW = 5;
@@ -145,6 +143,67 @@ String _brandBar(AppState s, int w) {
 String _thinRule(int w) => _c(Colors.muted, Colors.bgBase) + '─' * w + _r();
 
 // -------- help --------
+
+Frame _renderFzfSearch(AppState s, int w, int h) {
+  final rows = <String>[];
+
+  // Filter live using search input
+  final query = s.searchInput.toLowerCase();
+  final scored = <(int, dynamic)>[];
+  for (final n in s.notes) {
+    final hay = '${n.title.toLowerCase()} ${n.body.toLowerCase()} ${n.tags.join(" ").toLowerCase()}';
+    final score = AppState.fuzzyScore(query, hay);
+    if (query.isEmpty || score > 0) scored.add((score, n));
+  }
+  scored.sort((a, b) => b.$1.compareTo(a.$1));
+
+  final matched = scored.length;
+  final total = s.notes.length;
+
+  // fzf-style header line
+  final header = _c(Colors.fg, Colors.bgBase) + '  ' +
+      _c(Colors.accent, Colors.bgBase) + '  fzf ' + _r();
+  rows.add(_padRight(header, w));
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+
+  // Prompt line
+  final selCount = matched > 0 ? 1 : 0;
+  final counter = _c(Colors.muted, Colors.bgBase) + '  ${matched}/${total} ' +
+      _c(Colors.warn, Colors.bgBase) + '($selCount)' + _r();
+  final prompt = _c(Colors.warn, Colors.bgBase) + '  > ' + _r() +
+      _c(Colors.fg, Colors.bgBase) + s.searchInput + _r() +
+      _c(Colors.muted, Colors.bgBase) + '  '.padRight((w ~/ 3).clamp(20, 40)) + _r();
+  rows.add(_padRight(prompt + counter, w));
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+
+  // Results list
+  final avail = h - 6;
+  final cursor = 0; // always highlight first for now
+  for (int i = 0; i < avail; i++) {
+    if (i >= scored.length) {
+      rows.add(_padRight('', w));
+      continue;
+    }
+    final n = scored[i].$2;
+    final sel = i == cursor;
+    final title = n.title.isEmpty ? '(untitled)' : n.title;
+    final tags = n.tags.isEmpty ? '' : '   ' + (n.tags as List<String>).map((t) => '#$t').join(' ');
+    final marker = sel
+        ? _c(Colors.warn, Colors.bgBase) + '❯ ' + _r()
+        : _c(Colors.fg, Colors.bgBase) + '  ' + _r();
+    final titleStyle = sel
+        ? _c(Colors.accent, Colors.bgBase) + _b()
+        : _c(Colors.fg, Colors.bgBase);
+    rows.add(_padRight('  ' + marker + titleStyle + title + _r() +
+        _c(Colors.muted, Colors.bgBase) + tags + _r(), w));
+  }
+
+  // Footer hint
+  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) +
+      '  Enter apply · Esc cancel' + _r(), w));
+
+  return Frame(rows, cursorRow: 2, cursorCol: 4 + s.searchCursor);
+}
 
 Frame _renderSplash(AppState s, int w, int h) {
   final rows = <String>[];
@@ -586,8 +645,22 @@ List<String> _renderChat(AppState s, int w, int bodyH) {
 
   if (lines.isEmpty) {
     rows.add(_padRight('', w));
-    rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + _b() + '  ready when you are' + _r(), w));
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + (s.chatUseNotes ? 'ask about your notes' : 'general chat mode') + _r(), w));
+    if (lastAiSource == AiSource.none || s.aiCfg == null || !s.aiCfg!.valid) {
+      // No key configured — show setup guidance
+      rows.add(_padRight(_c(Colors.warn, Colors.bgBase) + _b() + '  ⚠ no OpenRouter key found' + _r(), w));
+      rows.add(_padRight('', w));
+      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  Set env var:' + _r(), w));
+      rows.add(_padRight(_c(Colors.warn, Colors.bgBase) + '    export OPENROUTER_KEY=sk-or-…' + _r(), w));
+      rows.add(_padRight('', w));
+      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  Or write config:' + _r(), w));
+      rows.add(_padRight(_c(Colors.warn, Colors.bgBase) + '    ~/.config/syncnote/ai.json' + _r(), w));
+      rows.add(_padRight('', w));
+      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  Get a key: ' +
+          _c(Colors.primary, Colors.bgBase) + 'https://openrouter.ai/keys' + _r(), w));
+    } else {
+      rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + _b() + '  ready when you are' + _r(), w));
+      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + (s.chatUseNotes ? 'ask about your notes' : 'general chat mode') + _r(), w));
+    }
     while (rows.length < maxH) rows.add(_padRight('', w));
   } else {
     final scroll = lines.length > maxH ? lines.length - maxH : 0;

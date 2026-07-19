@@ -338,6 +338,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   hasScrollBody: false,
                   child: _EmptyState(hasQuery: query.isNotEmpty),
                 )
+              else if (MediaQuery.of(context).size.width >= 720)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
+                  sliver: SliverGrid.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount:
+                          MediaQuery.of(context).size.width >= 1200 ? 3 : 2,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.6,
+                    ),
+                    itemCount: visible.length,
+                    itemBuilder: (context, i) => _NoteCard(note: visible[i]),
+                  ),
+                )
               else
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
@@ -683,12 +698,6 @@ class _NoteTile extends ConsumerWidget {
     );
   }
 
-  static Color _kindColor(NoteKind k) => switch (k) {
-        NoteKind.note => AppTheme.primary,
-        NoteKind.link => AppTheme.accent,
-        NoteKind.file => AppTheme.warning,
-      };
-
   static IconData _kindIcon(NoteKind k) => switch (k) {
         NoteKind.note => Icons.notes_outlined,
         NoteKind.link => Icons.link,
@@ -704,4 +713,102 @@ String _fmtDate(DateTime d) {
   if (diff.inHours < 24) return '${diff.inHours}h';
   if (diff.inDays < 7) return '${diff.inDays}d';
   return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+class _NoteCard extends ConsumerWidget {
+  final Note note;
+  const _NoteCard({required this.note});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => EditorScreen(note: note)),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.overlay),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    note.pinned ? Icons.push_pin : Icons.notes_outlined,
+                    size: 16,
+                    color: note.pinned ? AppTheme.warning : AppTheme.muted,
+                  ),
+                  const Spacer(),
+                  Text(_fmtDate(note.updatedAt),
+                      style: const TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Hero(
+                tag: 'note-title-${note.id}',
+                flightShuttleBuilder: (_, _, _, _, _) => Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    note.title.isEmpty ? '(untitled)' : note.title,
+                    style: const TextStyle(
+                        color: AppTheme.text,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        letterSpacing: -0.2),
+                  ),
+                ),
+                child: Text(
+                  note.title.isEmpty ? '(untitled)' : note.title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      height: 1.2,
+                      letterSpacing: -0.2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Expanded(
+                child: Text(
+                  note.body.isEmpty ? '(no body)' : note.body,
+                  style: const TextStyle(
+                      color: AppTheme.muted,
+                      fontSize: 12.5,
+                      height: 1.5),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (note.tags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  note.tags.take(4).map((t) => '#$t').join('  '),
+                  style: const TextStyle(
+                      color: AppTheme.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

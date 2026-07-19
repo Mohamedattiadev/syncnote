@@ -26,9 +26,22 @@ enum AiSource { env, file, none }
 
 AiSource lastAiSource = AiSource.none;
 
-/// Loads AI config: OPENROUTER_KEY env var → ~/.config/syncnote/ai.json.
+/// Loads AI config: multiple env var names → ~/.config/syncnote/ai.json.
 AiCfg? loadAi() {
-  final envKey = Platform.environment['OPENROUTER_KEY'] ?? '';
+  // Try several env var names people commonly use
+  const envNames = [
+    'OPENROUTER_KEY',
+    'OPENROUTER_API_KEY',
+    'SYNCNOTE_OPENROUTER_KEY',
+  ];
+  String envKey = '';
+  for (final name in envNames) {
+    final v = Platform.environment[name];
+    if (v != null && v.trim().isNotEmpty) {
+      envKey = v.trim();
+      break;
+    }
+  }
   final envModel =
       Platform.environment['OPENROUTER_MODEL'] ?? 'anthropic/claude-3.5-sonnet';
   if (envKey.isNotEmpty) {

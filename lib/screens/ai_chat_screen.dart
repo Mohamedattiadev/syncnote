@@ -11,7 +11,7 @@ import '../services/ai_actions.dart';
 import '../services/rag.dart';
 import '../widgets/typing_dots.dart';
 import 'ai_settings_screen.dart';
-import 'editor_screen.dart';
+
 
 enum ChatMode { notes, web }
 
@@ -229,24 +229,6 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
       return firstLine.replaceAll(RegExp(r'^#+\s*'), '').trim();
     }
     return firstLine.length > 60 ? firstLine.substring(0, 60) : firstLine;
-  }
-
-  Future<void> _editAsNote(String content) async {
-    final title = _extractTitle(content);
-    final now = DateTime.now().toUtc();
-    final draft = Note(
-      id: 'draft',
-      userId: '',
-      title: title,
-      body: content,
-      kind: NoteKind.note,
-      tags: const ['ai'],
-      createdAt: now,
-      updatedAt: now,
-    );
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EditorScreen(note: draft)),
-    );
   }
 
   void _scrollDown() {

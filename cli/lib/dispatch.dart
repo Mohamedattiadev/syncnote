@@ -230,7 +230,8 @@ DispatchResult _normalMode(AppState s, Key k) {
       _move(s, dy: -1);
       break;
     case 'h':
-      if (s.focus == Focus.list && s.treeOpen) {
+      if ((s.focus == Focus.list || s.focus == Focus.detail) && s.treeOpen) {
+        s.lastMainFocus = s.focus;
         s.focus = Focus.tree;
       } else {
         _move(s, dx: -1);
@@ -238,7 +239,7 @@ DispatchResult _normalMode(AppState s, Key k) {
       break;
     case 'l':
       if (s.focus == Focus.tree) {
-        s.focus = Focus.list;
+        s.focus = s.lastMainFocus;
       } else {
         _move(s, dx: 1);
       }
@@ -392,9 +393,6 @@ DispatchResult _normalMode(AppState s, Key k) {
   return DispatchResult.none;
 }
 
-String _hintNormal(AppState s) => s.focus == Focus.list
-    ? 'j/k G g move · Enter open · n new · dd del · yy yank · / search · : cmd · <space>… leader · q quit'
-    : 'hjkl move · i/I/a/A/o/O insert · v/V visual · y d c · p paste · Tab field · q back';
 
 DispatchResult _leader(AppState s, Key k) {
   if (!k.isRune) return DispatchResult.none;
@@ -421,12 +419,13 @@ DispatchResult _leader(AppState s, Key k) {
       s.mode = Mode.normal;
       break;
     case 'e':
-      // toggle tree pane
+      // toggle tree pane visibility WITHOUT changing focus.
+      // Use h/Tab to focus tree once open.
       s.treeOpen = !s.treeOpen;
       if (!s.treeOpen && s.focus == Focus.tree) s.focus = Focus.list;
-      if (s.treeOpen) s.focus = Focus.tree;
       break;
     case 't':
+      // Focus tree explicitly (opens if closed)
       s.focus = Focus.tree;
       s.treeOpen = true;
       break;
@@ -483,7 +482,7 @@ DispatchResult _treeMode(AppState s, Key k) {
       s.focus = Focus.list;
       break;
     case 'q':
-      s.focus = Focus.list;
+      s.focus = s.lastMainFocus;
       break;
     case 'h':
       // stay in tree - h is no-op inside tree (already leftmost)

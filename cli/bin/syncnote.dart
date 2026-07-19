@@ -60,9 +60,14 @@ Future<void> main(List<String> args) async {
   // Guarantee terminal restoration on ANY exit path.
   void cleanup() {
     try {
-      cursorDefault();
-      exitAlt();
+      terminalReset();
       stdout.write('\n');
+      try { stdout.flush(); } catch (_) {}
+      // Restore stdin so shell reads keys normally
+      try {
+        stdin.echoMode = true;
+        stdin.lineMode = true;
+      } catch (_) {}
     } catch (_) {}
   }
   final signals = <StreamSubscription>[];

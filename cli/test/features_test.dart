@@ -68,12 +68,12 @@ void main() {
   });
 
   group('Tree pane', () {
-    test('<space>e opens tree + focus tree', () {
+    test('<space>e opens tree, keeps focus (list)', () {
       final s = _state();
       dispatch(s, rune(' '));
       dispatch(s, rune('e'));
       expect(s.treeOpen, isTrue);
-      expect(s.focus, Focus.tree);
+      expect(s.focus, Focus.list); // focus stays; user must press h to enter tree
     });
 
     test('<space>e again closes tree, focus returns to list', () {
@@ -101,14 +101,14 @@ void main() {
       final s = _state();
       dispatch(s, rune(' '));
       dispatch(s, rune('e'));
-      // cursor at 0 (all), move to a real tag
+      // Focus tree explicitly to reach tree cursor
+      dispatch(s, rune('h'));
       final items = s.treeItems();
       final workIdx = items.indexWhere((e) => e.key == 'work');
       s.treeCursor = workIdx;
       dispatch(s, const Key('enter'));
       expect(s.treeFilter, 'work');
       expect(s.focus, Focus.list);
-      // filtered() returns only work-tagged notes
       expect(s.filtered().length, 1);
       expect(s.filtered().first.tags, contains('work'));
     });

@@ -104,6 +104,7 @@ class AppState {
   bool treeOpen = false;
   int treeCursor = 0;
   String? treeFilter; // active tag filter
+  Focus lastMainFocus = Focus.list; // list or detail; used to restore from tree
 
   // ---- helpers ----
   List<Note> filtered() {

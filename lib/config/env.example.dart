@@ -13,11 +13,6 @@ class Env {
     defaultValue: 'sb_publishable_YOUR_KEY',
   );
 
-  static const openAiKey = String.fromEnvironment(
-    'OPENAI_API_KEY',
-    defaultValue: '',
-  );
-
   static bool get isConfigured =>
       supabaseUrl.startsWith('https://') && !supabaseUrl.contains('YOUR-');
 }
