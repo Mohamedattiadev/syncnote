@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_selectionarea/flutter_markdown_selectionarea.dart';
@@ -22,6 +24,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _dirty = false;
   bool _saving = false;
   bool _preview = false;
+  Timer? _autoSaveTimer;
+  DateTime? _lastSaved;
+  Note? _editingNote; // real-time updated after auto-save (for note-not-yet-created case)
 
   @override
   void initState() {
@@ -29,15 +34,62 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _title = TextEditingController(text: widget.note?.title ?? '');
     _body = TextEditingController(text: widget.note?.body ?? '');
     _tagsCtrl = TextEditingController(text: widget.note?.tags.join(', ') ?? '');
+    _editingNote = widget.note;
     for (final c in [_title, _body, _tagsCtrl]) {
-      c.addListener(() {
-        if (!_dirty) setState(() => _dirty = true);
-      });
+      c.addListener(_onEdit);
+    }
+  }
+
+  void _onEdit() {
+    if (!_dirty) setState(() => _dirty = true);
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(milliseconds: 700), _autoSave);
+  }
+
+  Future<void> _autoSave() async {
+    if (_saving) return;
+    final title = _title.text.trim();
+    final bodyText = _body.text;
+    if (title.isEmpty && bodyText.trim().isEmpty) return; // don't save empty
+    final tags = _tagsCtrl.text
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    try {
+      final repo = ref.read(notesRepoProvider);
+      if (_editingNote == null || _editingNote!.id == 'draft') {
+        final created = await repo.create(
+          title: title,
+          body: bodyText,
+          tags: tags,
+        );
+        setState(() {
+          _editingNote = created;
+          _dirty = false;
+          _lastSaved = DateTime.now();
+        });
+      } else {
+        await repo.update(_editingNote!.copyWith(
+          title: title,
+          body: bodyText,
+          tags: tags,
+        ));
+        setState(() {
+          _dirty = false;
+          _lastSaved = DateTime.now();
+        });
+      }
+    } catch (_) {
+      // silent — user still sees dirty indicator
     }
   }
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
+    // Flush a final save if dirty (fire and forget).
+    if (_dirty) unawaited(_autoSave());
     _title.dispose();
     _body.dispose();
     _tagsCtrl.dispose();
@@ -139,6 +191,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         appBar: AppBar(
           title: Text(widget.note == null ? 'new note' : 'edit'),
           actions: [
+            _SaveStatus(dirty: _dirty, lastSaved: _lastSaved, saving: _saving),
+            const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.check_box_outlined),
               tooltip: 'insert task',
@@ -284,5 +338,46 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         ),
       ),
     );
+  }
+}
+
+class _SaveStatus extends StatelessWidget {
+  final bool dirty;
+  final bool saving;
+  final DateTime? lastSaved;
+  const _SaveStatus({required this.dirty, required this.saving, this.lastSaved});
+  @override
+  Widget build(BuildContext context) {
+    IconData icon;
+    Color color;
+    String tooltip;
+    if (saving) {
+      icon = Icons.sync;
+      color = AppTheme.warning;
+      tooltip = 'saving…';
+    } else if (dirty) {
+      icon = Icons.edit;
+      color = AppTheme.muted;
+      tooltip = 'unsaved (auto-save in a moment)';
+    } else {
+      icon = Icons.check_circle_outline;
+      color = AppTheme.success;
+      tooltip = lastSaved == null ? 'saved' : 'saved · ${_fmt(lastSaved!)}';
+    }
+    return Tooltip(
+      message: tooltip,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Icon(icon, color: color, size: 18),
+      ),
+    );
+  }
+
+  static String _fmt(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inSeconds < 5) return 'just now';
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    return '${diff.inHours}h ago';
   }
 }

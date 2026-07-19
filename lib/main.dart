@@ -7,6 +7,7 @@ import 'config/theme.dart';
 import 'providers.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/setup_wizard.dart';
 
 Future<void> main() async {
@@ -47,9 +48,32 @@ class _AuthGate extends ConsumerStatefulWidget {
 
 class _AuthGateState extends ConsumerState<_AuthGate> {
   bool _skipWizard = false;
+  bool _onboardingChecked = false;
+  bool _showOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    OnboardingScreen.shouldShow().then((show) {
+      if (mounted) {
+        setState(() {
+          _onboardingChecked = true;
+          _showOnboarding = show;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!_onboardingChecked) {
+      return const Scaffold(body: SizedBox());
+    }
+    if (_showOnboarding) {
+      return OnboardingScreen(
+        onFinish: () => setState(() => _showOnboarding = false),
+      );
+    }
     // Not configured → wizard (or demo home if skipped).
     if (!Env.isConfigured) {
       return _skipWizard
