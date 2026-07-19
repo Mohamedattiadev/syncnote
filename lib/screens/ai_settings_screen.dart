@@ -6,8 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/theme.dart';
 import '../providers.dart';
 import '../services/ai.dart';
+import '../services/app_lock.dart';
 import '../services/backup.dart';
-import 'tasks_screen.dart';
 import 'theme_picker.dart';
 
 class AiSettingsScreen extends ConsumerStatefulWidget {
@@ -172,14 +172,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
           const SizedBox(height: 32),
           const Text('tools', style: _labelStyle),
           const SizedBox(height: 8),
-          _ToolTile(
-            icon: Icons.task_alt,
-            title: 'Tasks',
-            subtitle: 'View all checkboxes across notes',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TasksScreen()),
-            ),
-          ),
+          _LockToggle(),
           const SizedBox(height: 8),
           _ToolTile(
             icon: Icons.download,
@@ -394,6 +387,115 @@ class _ModelTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LockToggle extends StatefulWidget {
+  @override
+  State<_LockToggle> createState() => _LockToggleState();
+}
+
+class _LockToggleState extends State<_LockToggle> {
+  bool? _enabled;
+  bool _supported = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final s = await AppLock.canUseBiometrics();
+    final e = await AppLock.isEnabled();
+    if (mounted) setState(() {
+      _supported = s;
+      _enabled = e;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_enabled == null) return const SizedBox.shrink();
+    if (!_supported) {
+      return _DisabledTile(
+        icon: Icons.lock_outline,
+        title: 'App lock (biometrics)',
+        subtitle: 'no biometric support on this device',
+      );
+    }
+    return Material(
+      color: AppTheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.overlay),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.fingerprint, color: AppTheme.muted, size: 20),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('App lock',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text('Face ID / fingerprint on app open',
+                      style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                ],
+              ),
+            ),
+            Switch(
+              value: _enabled!,
+              activeThumbColor: AppTheme.primary,
+              onChanged: (v) async {
+                await AppLock.setEnabled(v);
+                setState(() => _enabled = v);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DisabledTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  const _DisabledTile({required this.icon, required this.title, required this.subtitle});
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: 0.5,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.overlay),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppTheme.muted, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text(subtitle, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

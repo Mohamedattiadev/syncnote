@@ -8,10 +8,12 @@ import 'config/env.dart';
 import 'config/theme.dart';
 import 'config/themes.dart';
 import 'providers.dart';
+import 'screens/app_lock_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/setup_wizard.dart';
+import 'services/app_lock.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,15 +72,20 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
   bool _skipWizard = false;
   bool _onboardingChecked = false;
   bool _showOnboarding = false;
+  bool _locked = true;
 
   @override
   void initState() {
     super.initState();
-    OnboardingScreen.shouldShow().then((show) {
+    Future.wait([
+      OnboardingScreen.shouldShow(),
+      AppLock.isEnabled(),
+    ]).then((r) {
       if (mounted) {
         setState(() {
           _onboardingChecked = true;
-          _showOnboarding = show;
+          _showOnboarding = r[0];
+          _locked = r[1];
         });
       }
     });
@@ -88,6 +95,9 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
   Widget build(BuildContext context) {
     if (!_onboardingChecked) {
       return const Scaffold(body: SizedBox());
+    }
+    if (_locked) {
+      return AppLockScreen(onUnlocked: () => setState(() => _locked = false));
     }
     if (_showOnboarding) {
       return OnboardingScreen(

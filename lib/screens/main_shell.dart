@@ -9,6 +9,7 @@ import 'ai_chat_screen.dart';
 import 'ai_settings_screen.dart';
 import 'command_palette.dart';
 import 'home_screen.dart';
+import 'tasks_screen.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
@@ -17,7 +18,7 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  int _idx = 0; // 0=chat, 1=notes, 2=settings
+  int _idx = 0; // 0=chat, 1=notes, 2=tasks, 3=settings
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +44,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               children: const [
                 AiChatScreen(),
                 HomeScreen(),
+                TasksScreen(),
                 AiSettingsScreen(),
               ],
             ),
@@ -89,10 +91,16 @@ class _BottomNav extends StatelessWidget {
               onTap: () => onTap(1),
             ),
             _NavItem(
-              icon: Icons.settings_outlined,
-              label: 'Settings',
+              icon: Icons.task_alt,
+              label: 'Tasks',
               selected: current == 2,
               onTap: () => onTap(2),
+            ),
+            _NavItem(
+              icon: Icons.settings_outlined,
+              label: 'Settings',
+              selected: current == 3,
+              onTap: () => onTap(3),
             ),
           ],
         ),
