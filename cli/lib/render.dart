@@ -717,7 +717,8 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
     if (atCursor && s.mode != Mode.insert) {
       b.write(_c(Colors.black, Colors.bgPrimary) + ch + _c(Colors.fg, Colors.bgBase));
     } else if (inYank) {
-      b.write(_c(Colors.black, Colors.bgWarn) + ch + _c(Colors.fg, Colors.bgBase));
+      // Underline only — no bg — so it doesn't look like a second cursor.
+      b.write(sty(['4', Colors.warn, Colors.bgBase]) + ch + sty(['24']) + _c(Colors.fg, Colors.bgBase));
     } else if (selected) {
       b.write(_c(Colors.fg, Colors.bgOverlay) + ch + _c(Colors.fg, Colors.bgBase));
     } else {

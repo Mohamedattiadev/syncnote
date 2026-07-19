@@ -126,7 +126,7 @@ class AppState {
       yankStartRow != null &&
       DateTime.now().millisecondsSinceEpoch < yankUntilMillis;
 
-  void flashYank(int r1, int c1, int r2, int c2, {int ms = 400}) {
+  void flashYank(int r1, int c1, int r2, int c2, {int ms = 180}) {
     yankStartRow = r1;
     yankStartCol = c1;
     yankEndRow = r2;
