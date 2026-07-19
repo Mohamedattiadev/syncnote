@@ -227,6 +227,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         if (ok == true) Navigator.of(context).pop();
       },
       child: Scaffold(
+        bottomNavigationBar: _editingNote == null || _focusMode
+            ? null
+            : _MetaFooter(note: _editingNote!),
         appBar: AppBar(
           title: Row(
             children: [
@@ -503,5 +506,50 @@ class _MdButton extends StatelessWidget {
       onPressed: onTap,
       visualDensity: VisualDensity.compact,
     );
+  }
+}
+
+class _MetaFooter extends StatelessWidget {
+  final Note note;
+  const _MetaFooter({required this.note});
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.overlay)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.access_time, size: 12, color: AppTheme.muted),
+            const SizedBox(width: 4),
+            Text('updated ${_ago(note.updatedAt)}',
+                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+            const SizedBox(width: 12),
+            const Icon(Icons.tag, size: 12, color: AppTheme.muted),
+            const SizedBox(width: 4),
+            Text('${note.tags.length}',
+                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+            const Spacer(),
+            Text(note.id.substring(0, 8),
+                style: const TextStyle(
+                    color: AppTheme.muted,
+                    fontSize: 10,
+                    fontFamily: 'monospace')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _ago(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 }

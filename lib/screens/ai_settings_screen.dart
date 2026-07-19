@@ -8,6 +8,7 @@ import '../providers.dart';
 import '../services/ai.dart';
 import '../services/app_lock.dart';
 import '../services/backup.dart';
+import 'stats_screen.dart';
 import 'theme_picker.dart';
 
 class AiSettingsScreen extends ConsumerStatefulWidget {
@@ -173,6 +174,15 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
           const Text('tools', style: _labelStyle),
           const SizedBox(height: 8),
           _LockToggle(),
+          const SizedBox(height: 8),
+          _ToolTile(
+            icon: Icons.bar_chart,
+            title: 'Stats',
+            subtitle: 'Word count · tags · activity heatmap',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const StatsScreen()),
+            ),
+          ),
           const SizedBox(height: 8),
           _ToolTile(
             icon: Icons.download,

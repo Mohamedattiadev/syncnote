@@ -178,18 +178,52 @@ class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.task_alt, size: 56, color: AppTheme.muted),
-          SizedBox(height: 12),
-          Text('no tasks yet', style: TextStyle(color: AppTheme.text)),
-          SizedBox(height: 4),
-          Text(
-            'add "- [ ] task" to any note',
-            style: TextStyle(color: AppTheme.muted, fontSize: 12),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.overlay),
+              ),
+              child: const Icon(Icons.check_circle_outline,
+                  size: 48, color: AppTheme.muted),
+            ),
+            const SizedBox(height: 16),
+            const Text('nothing to do',
+                style: TextStyle(
+                    color: AppTheme.text,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            const Text(
+              'add `- [ ] task` to any note\n'
+              'or `- [x]` to mark it done',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: AppTheme.muted, fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.overlay,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                '- [ ] my task',
+                style: TextStyle(
+                    color: AppTheme.warning,
+                    fontFamily: 'monospace',
+                    fontSize: 13),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
