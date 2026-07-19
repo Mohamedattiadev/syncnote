@@ -274,6 +274,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         body: CallbackShortcuts(
           bindings: {
             const SingleActivator(LogicalKeyboardKey.keyS, control: true): _save,
+            const SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
+            const SingleActivator(LogicalKeyboardKey.keyB, control: true):
+                () => _wrap('**', '**'),
+            const SingleActivator(LogicalKeyboardKey.keyB, meta: true):
+                () => _wrap('**', '**'),
+            const SingleActivator(LogicalKeyboardKey.keyI, control: true):
+                () => _wrap('_', '_'),
+            const SingleActivator(LogicalKeyboardKey.keyI, meta: true):
+                () => _wrap('_', '_'),
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+                () => _wrap('[', '](url)'),
+            const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+                () => _wrap('[', '](url)'),
+            const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+                () => setState(() => _preview = !_preview),
+            const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
+                () => setState(() => _preview = !_preview),
           },
           child: Focus(
             autofocus: true,

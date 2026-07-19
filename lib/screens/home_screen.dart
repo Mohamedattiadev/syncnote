@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/note.dart';
 import '../providers.dart';
+import '../services/templates.dart';
 import '../widgets/skeleton.dart';
 import 'editor_screen.dart';
 
@@ -16,9 +17,12 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
+enum _SortMode { updated, created, alpha }
+
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchCtrl = TextEditingController();
   NoteKind? _filter;
+  _SortMode _sort = _SortMode.updated;
   Timer? _debounce;
 
   @override
@@ -27,6 +31,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _searchCtrl.dispose();
     super.dispose();
   }
+
+  Future<void> _showTemplatePicker() async {
+    final picked = await showModalBottomSheet<NoteTemplate>(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Text('new note from…',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            ),
+            for (final t in kTemplates)
+              ListTile(
+                leading: Icon(_iconFor(t.id), color: AppTheme.accent),
+                title: Text(t.label),
+                subtitle: Text(t.description,
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                onTap: () => Navigator.pop(context, t),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final now = DateTime.now().toUtc();
+    final draft = Note(
+      id: 'draft',
+      userId: '',
+      title: picked.titleFn(),
+      body: picked.bodyFn(),
+      kind: NoteKind.note,
+      tags: picked.tags,
+      createdAt: now,
+      updatedAt: now,
+    );
+    if (mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => EditorScreen(note: draft)),
+      );
+    }
+  }
+
+  PopupMenuItem<_SortMode> _sortItem(_SortMode m, String label) {
+    return PopupMenuItem(
+      value: m,
+      child: Row(
+        children: [
+          Icon(_sort == m ? Icons.check : Icons.circle_outlined,
+              size: 16, color: _sort == m ? AppTheme.primary : AppTheme.muted),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  IconData _iconFor(String id) => switch (id) {
+        'daily' => Icons.calendar_today_outlined,
+        'meeting' => Icons.groups_outlined,
+        'idea' => Icons.lightbulb_outline,
+        _ => Icons.note_add_outlined,
+      };
 
   void _onSearch(String v) {
     _debounce?.cancel();
@@ -94,6 +166,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 backgroundColor: AppTheme.base,
                 surfaceTintColor: AppTheme.base,
                 actions: [
+                  PopupMenuButton<_SortMode>(
+                    icon: const Icon(Icons.sort),
+                    tooltip: 'sort',
+                    onSelected: (v) => setState(() => _sort = v),
+                    itemBuilder: (_) => [
+                      _sortItem(_SortMode.updated, 'Recently updated'),
+                      _sortItem(_SortMode.created, 'Recently created'),
+                      _sortItem(_SortMode.alpha, 'Alphabetical'),
+                    ],
+                  ),
                   IconButton(
                     icon: const Icon(Icons.logout),
                     tooltip: 'sign out',
@@ -227,9 +309,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const EditorScreen()),
-        ),
+        onPressed: () async {
+          HapticFeedback.mediumImpact();
+          await _showTemplatePicker();
+        },
         icon: const Icon(Icons.add),
         label: const Text('new'),
         backgroundColor: AppTheme.primary,
@@ -252,11 +335,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       scored.sort((a, b) => b.$1.compareTo(a.$1));
       return scored.map((e) => e.$2).toList();
     }
-    // Pinned first, then by updated_at desc
+    // Pinned first, then user-selected sort
     final sorted = it.toList();
     sorted.sort((a, b) {
       if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
-      return b.updatedAt.compareTo(a.updatedAt);
+      return switch (_sort) {
+        _SortMode.updated => b.updatedAt.compareTo(a.updatedAt),
+        _SortMode.created => b.createdAt.compareTo(a.createdAt),
+        _SortMode.alpha => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      };
     });
     return sorted;
   }
