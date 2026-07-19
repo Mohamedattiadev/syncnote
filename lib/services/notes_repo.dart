@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/note.dart';
+import 'local_cache.dart';
 import 'mock_repo.dart';
 
 /// Shared repo interface — SupabaseNotesRepo or MockNotesRepo satisfy this.
@@ -32,12 +36,35 @@ class SupabaseNotesRepo implements NotesRepo {
   Stream<List<Note>> watchAll() {
     final uid = _uid;
     if (uid == null) return const Stream.empty();
-    return _client
-        .from('notes')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', uid)
-        .order('updated_at', ascending: false)
-        .map((rows) => rows.map(Note.fromMap).toList());
+
+    // Wrap Supabase stream so we push each snapshot into local cache
+    // AND emit local cache immediately (so UI is never empty on cold boot).
+    late final StreamController<List<Note>> ctrl;
+    StreamSubscription? sub;
+    ctrl = StreamController<List<Note>>(
+      onListen: () async {
+        // Immediate cache read while network resolves
+        final cached = await LocalCache.readAll(uid);
+        if (cached.isNotEmpty && !ctrl.isClosed) ctrl.add(cached);
+
+        sub = _client
+            .from('notes')
+            .stream(primaryKey: ['id'])
+            .eq('user_id', uid)
+            .order('updated_at', ascending: false)
+            .map((rows) => rows.map(Note.fromMap).toList())
+            .listen((notes) {
+          if (!ctrl.isClosed) ctrl.add(notes);
+          unawaited(LocalCache.writeAll(notes));
+        }, onError: (e) {
+          // silent — user still sees cache
+        });
+      },
+      onCancel: () async {
+        await sub?.cancel();
+      },
+    );
+    return ctrl.stream;
   }
 
   @override
@@ -78,21 +105,72 @@ class SupabaseNotesRepo implements NotesRepo {
       createdAt: now,
       updatedAt: now,
     );
-    await _client.from('notes').insert(note.toMap());
+    // Write to cache first — instant UI feedback + offline survival
+    unawaited(LocalCache.upsert(note));
+    try {
+      await _client.from('notes').insert(note.toMap());
+    } catch (e) {
+      // Offline — queue for later sync
+      unawaited(LocalCache.queueOp(
+          op: 'insert', noteId: note.id, payload: note.toMap()));
+    }
     return note;
   }
 
   @override
   Future<void> update(Note n) async {
-    await _client
-        .from('notes')
-        .update(n.copyWith(updatedAt: DateTime.now().toUtc()).toMap())
-        .eq('id', n.id);
+    final updated = n.copyWith(updatedAt: DateTime.now().toUtc());
+    unawaited(LocalCache.upsert(updated));
+    try {
+      await _client.from('notes').update(updated.toMap()).eq('id', n.id);
+    } catch (e) {
+      unawaited(LocalCache.queueOp(
+          op: 'update', noteId: n.id, payload: updated.toMap()));
+    }
   }
 
   @override
   Future<void> delete(String id) async {
-    await _client.from('notes').delete().eq('id', id);
+    unawaited(LocalCache.delete(id));
+    try {
+      await _client.from('notes').delete().eq('id', id);
+    } catch (e) {
+      unawaited(LocalCache.queueOp(op: 'delete', noteId: id));
+    }
+  }
+
+  /// Called when app comes back online — drain pending offline ops.
+  Future<int> syncPending() async {
+    final ops = await LocalCache.readPendingOps();
+    int done = 0;
+    for (final op in ops) {
+      final id = op['id'] as int;
+      final kind = op['op'] as String;
+      try {
+        switch (kind) {
+          case 'insert':
+            await _client.from('notes').insert(
+                jsonDecode(op['payload'] as String) as Map<String, dynamic>);
+            break;
+          case 'update':
+            await _client
+                .from('notes')
+                .update(
+                    jsonDecode(op['payload'] as String) as Map<String, dynamic>)
+                .eq('id', op['note_id'] as String);
+            break;
+          case 'delete':
+            await _client.from('notes').delete().eq('id', op['note_id'] as String);
+            break;
+        }
+        await LocalCache.removeOp(id);
+        done++;
+      } catch (_) {
+        // still offline — leave for next attempt
+        break;
+      }
+    }
+    return done;
   }
 }
 
