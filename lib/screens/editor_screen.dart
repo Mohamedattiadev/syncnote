@@ -24,6 +24,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   bool _dirty = false;
   bool _saving = false;
   bool _preview = false;
+  bool _focusMode = false;
   Timer? _autoSaveTimer;
   DateTime? _lastSaved;
   Note? _editingNote; // real-time updated after auto-save (for note-not-yet-created case)
@@ -243,6 +244,19 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           actions: [
             _SaveStatus(dirty: _dirty, lastSaved: _lastSaved, saving: _saving),
             const SizedBox(width: 4),
+            if (_editingNote != null)
+              IconButton(
+                icon: Icon(
+                  _editingNote!.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: _editingNote!.pinned ? AppTheme.warning : null,
+                ),
+                tooltip: _editingNote!.pinned ? 'unpin' : 'pin',
+                onPressed: () async {
+                  final updated = _editingNote!.copyWith(pinned: !_editingNote!.pinned);
+                  setState(() => _editingNote = updated);
+                  await ref.read(notesRepoProvider).update(updated);
+                },
+              ),
             _MdButton(icon: Icons.format_bold, tooltip: 'bold', onTap: () => _wrap('**', '**')),
             _MdButton(icon: Icons.format_italic, tooltip: 'italic', onTap: () => _wrap('_', '_')),
             _MdButton(icon: Icons.code, tooltip: 'code', onTap: () => _wrap('`', '`')),
@@ -254,6 +268,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               icon: Icon(_preview ? Icons.edit_note : Icons.visibility),
               tooltip: _preview ? 'edit' : 'preview',
               onPressed: () => setState(() => _preview = !_preview),
+            ),
+            IconButton(
+              icon: Icon(_focusMode ? Icons.fullscreen_exit : Icons.fullscreen),
+              tooltip: _focusMode ? 'exit focus mode' : 'focus mode',
+              onPressed: () => setState(() => _focusMode = !_focusMode),
             ),
             if (_saving)
               const Padding(
@@ -299,7 +318,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Hero(
+                  if (!_focusMode) Hero(
                     tag: 'note-title-${widget.note?.id ?? "new"}',
                     flightShuttleBuilder: (_, _, _, _, _) => Material(
                       color: Colors.transparent,
@@ -327,15 +346,15 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                       ),
                     ),
                   ),
-                  const Divider(color: AppTheme.overlay, height: 20),
-                  TextField(
+                  if (!_focusMode) const Divider(color: AppTheme.overlay, height: 20),
+                  if (!_focusMode) TextField(
                     controller: _tagsCtrl,
                     decoration: const InputDecoration(
                       hintText: 'tags (comma-separated)',
                       prefixIcon: Icon(Icons.tag, size: 18),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  if (!_focusMode) const SizedBox(height: 12),
                   Expanded(
                     child: _preview
                         ? Container(

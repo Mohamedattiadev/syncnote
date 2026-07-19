@@ -378,6 +378,16 @@ DispatchResult _normalMode(AppState s, Key k) {
     case '?':
       s.showHelp = !s.showHelp;
       break;
+    case 'P':
+      // Toggle pin on current note (list focus)
+      if (s.focus == Focus.list) {
+        final n = s.currentUnderList();
+        if (n != null) {
+          n.pinned = !n.pinned;
+          s.toast = n.pinned ? '★ pinned' : 'unpinned';
+        }
+      }
+      break;
   }
   return DispatchResult.none;
 }

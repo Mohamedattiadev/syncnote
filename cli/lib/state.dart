@@ -107,7 +107,10 @@ class AppState {
 
   // ---- helpers ----
   List<Note> filtered() {
-    Iterable<Note> it = notes;
+    Iterable<Note> it = notes.toList()..sort((a, b) {
+      if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
     if (treeFilter != null) {
       if (treeFilter == '__untagged__') {
         it = it.where((n) => n.tags.isEmpty);

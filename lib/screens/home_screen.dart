@@ -22,8 +22,14 @@ enum _SortMode { updated, created, alpha }
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchCtrl = TextEditingController();
   NoteKind? _filter;
+  String? _tagFilter;
   _SortMode _sort = _SortMode.updated;
   Timer? _debounce;
+
+  void _setTagFilter(String? t) {
+    HapticFeedback.selectionClick();
+    setState(() => _tagFilter = t);
+  }
 
   @override
   void dispose() {
@@ -288,6 +294,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
+              if (_tagFilter != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.accent),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.tag,
+                                  size: 12, color: AppTheme.accent),
+                              const SizedBox(width: 4),
+                              Text(_tagFilter!,
+                                  style: const TextStyle(
+                                      color: AppTheme.accent,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 4),
+                              InkWell(
+                                onTap: () => _setTagFilter(null),
+                                child: const Icon(Icons.close,
+                                    size: 12, color: AppTheme.accent),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SliverToBoxAdapter(child: SizedBox(height: 8)),
               if (visible.isEmpty)
                 SliverFillRemaining(
@@ -324,6 +368,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Note> _apply(List<Note> notes, String query) {
     Iterable<Note> it = notes;
     if (_filter != null) it = it.where((n) => n.kind == _filter);
+    if (_tagFilter != null) it = it.where((n) => n.tags.contains(_tagFilter));
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
       // Fuzzy scoring — substring > subsequence, sort by score desc
@@ -607,14 +652,22 @@ class _NoteTile extends ConsumerWidget {
                         if (note.tags.isNotEmpty) ...[
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              note.tags.take(3).map((t) => '#$t').join('  '),
-                              style: const TextStyle(
-                                  color: AppTheme.muted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: Wrap(
+                              spacing: 6,
+                              children: note.tags.take(3).map((t) => InkWell(
+                                onTap: () {
+                                  final state = context.findAncestorStateOfType<_HomeScreenState>();
+                                  state?._setTagFilter(t);
+                                },
+                                borderRadius: BorderRadius.circular(4),
+                                child: Text(
+                                  '#$t',
+                                  style: const TextStyle(
+                                      color: AppTheme.muted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500),
+                                ),
+                              )).toList(),
                             ),
                           ),
                         ],

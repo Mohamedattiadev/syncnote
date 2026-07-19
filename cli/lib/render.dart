@@ -419,6 +419,9 @@ List<String> _renderList(AppState s, int w, int bodyH) {
       b1.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
     }
     b1.write(' ');
+    if (n.pinned) {
+      b1.write(_c(Colors.warn, Colors.bgBase) + '★ ' + _r());
+    }
     if (sel) {
       b1.write(_c(Colors.primary, Colors.bgBase) + _b() + title + _r());
     } else {

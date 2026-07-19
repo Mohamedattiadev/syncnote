@@ -131,8 +131,17 @@ Future<void> main(List<String> args) async {
       }
     }
     if (r.chatSend) {
-      // fire and forget streaming; UI refreshes via periodic redraws
       _sendChat(state);
+    }
+    // Pin toggle: detect ★/unpinned toast and persist
+    if (state.toast == '★ pinned' || state.toast == 'unpinned') {
+      final n = state.currentUnderList();
+      if (n != null) {
+        try {
+          n.updatedAt = DateTime.now().toUtc();
+          await client.from('notes').update(n.toMap()).eq('id', n.id);
+        } catch (_) {}
+      }
     }
     _draw(state);
     if (r.quit || state.quit) break;

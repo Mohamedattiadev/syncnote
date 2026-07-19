@@ -6,6 +6,7 @@ class Note {
   String title;
   String body;
   List<String> tags;
+  bool pinned;
   final DateTime createdAt;
   DateTime updatedAt;
 
@@ -17,6 +18,7 @@ class Note {
     required this.tags,
     required this.createdAt,
     required this.updatedAt,
+    this.pinned = false,
   });
 
   factory Note.fromMap(Map<String, dynamic> m) => Note(
@@ -25,6 +27,7 @@ class Note {
         title: (m['title'] ?? '') as String,
         body: (m['body'] ?? '') as String,
         tags: (m['tags'] as List?)?.cast<String>() ?? const [],
+        pinned: (m['pinned'] as bool?) ?? false,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String),
       );
@@ -35,16 +38,18 @@ class Note {
         'title': title,
         'body': body,
         'tags': tags,
+        'pinned': pinned,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String(),
       };
 
-  Note copyWith({String? title, String? body, List<String>? tags}) => Note(
+  Note copyWith({String? title, String? body, List<String>? tags, bool? pinned}) => Note(
         id: id,
         userId: userId,
         title: title ?? this.title,
         body: body ?? this.body,
         tags: tags ?? this.tags,
+        pinned: pinned ?? this.pinned,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
