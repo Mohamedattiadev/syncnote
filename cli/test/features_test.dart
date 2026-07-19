@@ -10,7 +10,7 @@ import 'package:syncnote_cli/state.dart';
 Key rune(String r) => Key('rune', r);
 
 AppState _state({int count = 3}) {
-  final s = AppState();
+  final s = AppState()..splashDismissed = true;
   final now = DateTime.now().toUtc();
   s.notes = List.generate(
     count,
@@ -274,7 +274,7 @@ void main() {
     });
 
     test('char budget truncates long notes', () {
-      final s = AppState();
+      final s = AppState()..splashDismissed = true;
       final now = DateTime.now().toUtc();
       s.notes = List.generate(
         5,

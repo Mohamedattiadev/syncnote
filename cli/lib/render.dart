@@ -30,6 +30,7 @@ String _dim() => sty(['2']); // dim
 Frame renderFrame(AppState s, int w, int h) {
   final rows = <String>[];
 
+  if (s.shouldShowSplash) return _renderSplash(s, w, h);
   if (s.showHelp) return _renderHelp(s, w, h);
 
   // TOP BAR (2 rows: brand + divider)
@@ -87,18 +88,16 @@ Frame renderFrame(AppState s, int w, int h) {
       cr = 2 + pos.$1;
       cc = treeW + (treeW > 0 ? 1 : 0) + pos.$2;
     }
-  } else if (s.focus == Focus.list) {
-    cr = 2 + _visualListRow(s.listCursor - s.listScroll);
-    cc = treeW + (treeW > 0 ? 1 : 0) + 2;
-  } else if (s.focus == Focus.tree) {
-    cr = 3 + s.treeCursor;
-    cc = 3;
+  } else if (s.focus == Focus.list || s.focus == Focus.tree) {
+    // Rely on visual stripe indicator; hide terminal cursor.
+    cr = null;
+    cc = null;
   }
   return Frame(rows, cursorRow: cr, cursorCol: cc);
 }
 
-// Each list item takes 2 rows (title + meta). Compute terminal row for cursor.
-int _visualListRow(int idx) => idx * 2;
+// Each list item takes 2 rows (title + meta). +2 for section header rows.
+int _visualListRow(int idx) => 2 + idx * 2;
 
 (int, int)? _detailCursorPosition(AppState s, int mainW) {
   final gutterW = 5;
@@ -114,11 +113,19 @@ int _visualListRow(int idx) => idx * 2;
 // -------- top bar --------
 
 String _brandBar(AppState s, int w) {
-  final left = _c(Colors.fg, Colors.bgBase) + '  ' +
-      _c(Colors.fg, Colors.bgBase) + _b() + 'syncnote' + _r() +
-      _c(Colors.muted, Colors.bgBase) + '   notes · sync · ai' + _r();
+  // Colored logo dot + brand + subtle count
+  final count = s.notes.length;
+  final logo = _c(Colors.accent, Colors.bgBase) + '●' + _r() +
+      _c(Colors.primary, Colors.bgBase) + '●' + _r();
+  final brand = _c(Colors.fg, Colors.bgBase) + _b() + '  syncnote' + _r();
+  final countBadge = count > 0
+      ? _c(Colors.muted, Colors.bgBase) + '   ' + _c(Colors.accent, Colors.bgBase) + count.toString() + _r() +
+        _c(Colors.muted, Colors.bgBase) + ' notes' + _r()
+      : '';
+  final left = '  ' + logo + brand + countBadge;
+
   final syncOK = _c(Colors.success, Colors.bgBase) + '●' + _r();
-  final right = syncOK + _c(Colors.muted, Colors.bgBase) + '  live  ' + _r();
+  final right = syncOK + _c(Colors.muted, Colors.bgBase) + '  synced  ' + _r();
   final gap = w - _len(left) - _len(right);
   return left + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + right;
 }
@@ -126,6 +133,50 @@ String _brandBar(AppState s, int w) {
 String _thinRule(int w) => _c(Colors.muted, Colors.bgBase) + '─' * w + _r();
 
 // -------- help --------
+
+Frame _renderSplash(AppState s, int w, int h) {
+  final rows = <String>[];
+  final art = _asciiArt();
+  final artW = art.map((l) => l.length).reduce((a, b) => a > b ? a : b);
+  final artStart = ((h - art.length - 6) ~/ 2).clamp(0, h);
+
+  for (int i = 0; i < artStart; i++) {
+    rows.add(_padRight('', w));
+  }
+  final leftPad = ((w - artW) ~/ 2).clamp(0, w);
+  final pad = ' ' * leftPad;
+  for (final line in art) {
+    rows.add(_padRight(pad + _c(Colors.primary, Colors.bgBase) + line + _r(), w));
+  }
+  rows.add(_padRight('', w));
+  rows.add(_padRight('', w));
+
+  const tagline = 'notes  ·  sync  ·  ai';
+  final tagPad = ' ' * ((w - tagline.length) ~/ 2).clamp(0, w);
+  rows.add(_padRight(tagPad + _c(Colors.muted, Colors.bgBase) + _b() + tagline + _r(), w));
+  rows.add(_padRight('', w));
+
+  // Loading dots animation
+  final dots = ((DateTime.now().millisecondsSinceEpoch ~/ 200) % 4);
+  final dotStr = List.filled(dots, '·').join(' ') + List.filled(3 - dots, ' ').join(' ');
+  final dotPad = ' ' * ((w - 7) ~/ 2).clamp(0, w);
+  rows.add(_padRight(dotPad + _c(Colors.accent, Colors.bgBase) + '  $dotStr  ' + _r(), w));
+
+  while (rows.length < h - 1) rows.add(_padRight('', w));
+  const hint = 'press any key to continue';
+  final hintPad = ' ' * ((w - hint.length) ~/ 2).clamp(0, w);
+  rows.add(_padRight(hintPad + _c(Colors.muted, Colors.bgBase) + hint + _r(), w));
+  return Frame(rows);
+}
+
+/// Simple ASCII wordmark — bold letters with negative space.
+List<String> _asciiArt() {
+  return [
+    '  ┌─┐┬ ┬┌┐┌┌─┐┌┐┌┌─┐┌┬┐┌─┐',
+    '  └─┐└┬┘││││   ││││ │ │ ├┤ ',
+    '  └─┘ ┴ ┘└┘└─┘┘└┘└─┘ ┴ └─┘',
+  ];
+}
 
 Frame _renderHelp(AppState s, int w, int h) {
   final rows = <String>[];
@@ -309,9 +360,18 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
 List<String> _renderList(AppState s, int w, int bodyH) {
   final rows = <String>[];
   final items = s.filtered();
-  // Each item = 2 rows (title + meta) → fit half as many
+  final label = s.treeFilter == null
+      ? 'INBOX'
+      : (s.treeFilter == '__untagged__' ? 'UNTAGGED' : '#${s.treeFilter}'.toUpperCase());
+  final countStr = '${items.length}';
+  final header = _c(Colors.muted, Colors.bgBase) + '  ' + label +
+      '   ' + _c(Colors.accent, Colors.bgBase) + countStr + _r();
+  rows.add(_padRight(header, w));
+  rows.add(_padRight('', w));
+  // Header takes 2 rows; each item = 2 rows (title + meta)
   final rowsPerItem = 2;
-  final maxItems = (bodyH / rowsPerItem).floor();
+  final availableForItems = bodyH - 2;
+  final maxItems = (availableForItems / rowsPerItem).floor();
 
   if (s.listCursor < s.listScroll) s.listScroll = s.listCursor;
   if (s.listCursor >= s.listScroll + maxItems) {
@@ -587,6 +647,12 @@ String _statusline(AppState s, int w) {
 
   // Normal: mode · context · pos · muted hints
   final modeLabel = s.mode.label.toLowerCase();
+  final modeColor = switch (s.mode) {
+    Mode.insert => Colors.success,
+    Mode.visual || Mode.visualLine => Colors.accent,
+    Mode.cmd || Mode.search => Colors.warn,
+    _ => Colors.primary,
+  };
   final ctx = switch (s.focus) {
     Focus.list => 'inbox',
     Focus.detail => 'editor',
@@ -598,10 +664,10 @@ String _statusline(AppState s, int w) {
       : s.focus == Focus.detail
           ? '${s.activeBuf.cursor.row + 1}:${s.activeBuf.cursor.col + 1}'
           : '';
-  final left = _c(Colors.muted, Colors.bgBase) + '  ' +
-      _c(Colors.fg, Colors.bgBase) + _b() + modeLabel + _r() +
+  final left = '  ' +
+      _c(modeColor, Colors.bgBase) + _b() + modeLabel + _r() +
       _c(Colors.muted, Colors.bgBase) + '   ' + ctx +
-      (pos.isNotEmpty ? '   ' + pos : '') + _r();
+      (pos.isNotEmpty ? '   ' + _c(Colors.fg, Colors.bgBase) + pos : '') + _r();
 
   final hint = _c(Colors.muted, Colors.bgBase) + _hintText(s) + '  ' + _r();
   final gap = w - _len(left) - _len(hint);

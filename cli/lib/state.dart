@@ -60,6 +60,16 @@ class AppState {
 
   bool quit = false;
   bool showHelp = false;
+  bool showSplash = true;
+  int splashStartMillis = DateTime.now().millisecondsSinceEpoch;
+  bool splashDismissed = false;
+
+  bool get shouldShowSplash {
+    if (splashDismissed) return false;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - splashStartMillis;
+    if (elapsed > 1200) return false; // auto-dismiss after 1.2s
+    return true;
+  }
 
   // ---- Chat state ----
   List<ChatMsg> chat = [];

@@ -229,7 +229,7 @@ void main() {
 // ---------- helpers ----------
 
 AppState _stateWith(int count) {
-  final s = AppState();
+  final s = AppState()..splashDismissed = true;
   final now = DateTime.now().toUtc();
   s.notes = List.generate(
     count,

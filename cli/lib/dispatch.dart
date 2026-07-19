@@ -28,6 +28,12 @@ class DispatchResult {
 DispatchResult dispatch(AppState s, Key k) {
   s.toast = '';
 
+  // Splash dismisses on any key.
+  if (s.shouldShowSplash) {
+    s.splashDismissed = true;
+    return DispatchResult.none;
+  }
+
   // Help overlay eats input until dismissed.
   if (s.showHelp) {
     if (k.name == 'esc' || (k.isRune && (k.rune == 'q' || k.rune == '?'))) {
