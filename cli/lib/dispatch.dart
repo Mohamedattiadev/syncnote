@@ -1163,6 +1163,32 @@ DispatchResult _runCmd(AppState s, String cmd) {
     return DispatchResult.none;
   }
 
+  // :reg / :registers — list named registers
+  if (cmd == 'reg' || cmd == 'registers') {
+    if (s.namedRegisters.isEmpty) {
+      s.toast = 'no named registers';
+    } else {
+      final list = s.namedRegisters.entries
+          .map((e) => '"${e.key}=${e.value.length > 20 ? "${e.value.substring(0, 20)}…" : e.value.replaceAll("\n", "⏎")}')
+          .join('  ');
+      s.toast = list;
+    }
+    return DispatchResult.none;
+  }
+
+  // :marks — list marks in current buffer
+  if (cmd == 'marks') {
+    if (s.focus != Focus.detail) { s.toast = ':marks needs editor'; s.toastErr = true; return DispatchResult.none; }
+    final b = s.activeBuf;
+    if (b.marks.isEmpty) {
+      s.toast = 'no marks set';
+    } else {
+      final list = b.marks.entries.map((e) => "'${e.key}=L${e.value + 1}").join('  ');
+      s.toast = list;
+    }
+    return DispatchResult.none;
+  }
+
   // :undolist — show undo stack size
   if (cmd == 'undolist' || cmd == 'undol') {
     if (s.focus == Focus.detail) {

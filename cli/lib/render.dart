@@ -351,6 +351,8 @@ List<String> _helpText() => [
       '  :encrypt <pass>   XOR+base64 obscure current note body',
       '  :decrypt <pass>   reverse encryption',
       '  :undolist         show undo/redo stack sizes',
+      '  :reg :registers   list named registers',
+      '  :marks            list marks in buffer',
     ];
 
 // -------- layout --------

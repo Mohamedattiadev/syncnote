@@ -3,6 +3,8 @@
 // Placeholder illustrations use large Material icons over a hero gradient;
 // swap for real art later (see report TODO).
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -244,33 +246,29 @@ class _Slide extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
-              // Large placeholder illustration — icon 120px, muted white bg.
               Center(
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: AppTheme.text.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(48),
-                    border: Border.all(
-                      color: AppTheme.text.withValues(alpha: 0.15),
-                      width: 1,
+                child: SizedBox(
+                  width: 240,
+                  height: 240,
+                  child: CustomPaint(
+                    painter: _OnboardIllustrationPainter(index: index),
+                    child: Center(
+                      child: Icon(
+                        spec.icon,
+                        size: 96,
+                        color: AppTheme.text.withValues(alpha: 0.95),
+                      ),
                     ),
                   ),
-                  child: Icon(
-                    spec.icon,
-                    size: 120,
-                    color: AppTheme.text.withValues(alpha: 0.9),
-                  ),
                 )
-                    .animate(key: ValueKey('icon-$index'))
+                    .animate(key: ValueKey('illu-$index'))
                     .fadeIn(
-                        duration: const Duration(milliseconds: 420),
+                        duration: const Duration(milliseconds: 500),
                         curve: Curves.easeOutCubic)
                     .scale(
                         begin: const Offset(0.85, 0.85),
                         end: const Offset(1, 1),
-                        duration: const Duration(milliseconds: 420),
+                        duration: const Duration(milliseconds: 500),
                         curve: Curves.easeOutCubic),
               ),
               const SizedBox(height: 48),
@@ -336,4 +334,79 @@ class _Slide extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Illustration painter — abstract shapes per slide (Fabric-style hero art).
+/// index: 0 = capture (dots + waves), 1 = AI (radial burst), 2 = sync (orbits).
+class _OnboardIllustrationPainter extends CustomPainter {
+  final int index;
+  _OnboardIllustrationPainter({required this.index});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2;
+    final white = Colors.white;
+
+    // Halo ring behind icon.
+    final ringPaint = Paint()
+      ..color = white.withValues(alpha: 0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(center, r * 0.75, ringPaint);
+    canvas.drawCircle(center, r * 0.55, ringPaint..color = white.withValues(alpha: 0.10));
+
+    switch (index) {
+      case 0:
+        // Scattered dots + arc — "capture" motif
+        final dotPaint = Paint()..color = white.withValues(alpha: 0.35);
+        for (final o in const [
+          Offset(0.15, 0.20), Offset(0.85, 0.30), Offset(0.20, 0.85),
+          Offset(0.80, 0.80), Offset(0.10, 0.55), Offset(0.90, 0.60),
+        ]) {
+          canvas.drawCircle(
+              Offset(o.dx * size.width, o.dy * size.height), 3.5, dotPaint);
+        }
+        final arc = Paint()
+          ..color = white.withValues(alpha: 0.22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2;
+        canvas.drawArc(
+            Rect.fromCircle(center: center, radius: r * 0.88), 3.6, 2.2, false, arc);
+        break;
+      case 1:
+        // Radial burst — "AI"
+        final ray = Paint()
+          ..color = white.withValues(alpha: 0.20)
+          ..strokeWidth = 2;
+        for (int i = 0; i < 12; i++) {
+          final a = i * math.pi * 2 / 12;
+          final from = Offset(center.dx + r * 0.60 * math.cos(a), center.dy + r * 0.60 * math.sin(a));
+          final to = Offset(center.dx + r * 0.92 * math.cos(a), center.dy + r * 0.92 * math.sin(a));
+          canvas.drawLine(from, to, ray);
+        }
+        break;
+      case 2:
+        // Two orbit ellipses — "sync"
+        final orbit = Paint()
+          ..color = white.withValues(alpha: 0.20)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.save();
+        canvas.translate(center.dx, center.dy);
+        canvas.rotate(-0.4);
+        canvas.drawOval(
+            Rect.fromCenter(center: Offset.zero, width: r * 1.8, height: r * 0.9),
+            orbit);
+        canvas.rotate(0.8);
+        canvas.drawOval(
+            Rect.fromCenter(center: Offset.zero, width: r * 1.8, height: r * 0.9),
+            orbit);
+        canvas.restore();
+        break;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OnboardIllustrationPainter old) => old.index != index;
 }
