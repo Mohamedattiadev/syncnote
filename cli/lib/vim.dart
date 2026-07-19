@@ -38,6 +38,9 @@ class Buffer {
   /// Undo/redo stacks — cap history to avoid memory blowup.
   final List<BufferSnapshot> undoStack = [];
   final List<BufferSnapshot> redoStack = [];
+
+  /// Named marks: 'a'..'z' → line number.
+  final Map<String, int> marks = {};
   static const int _maxHistory = 200;
 
   void snapshot() {

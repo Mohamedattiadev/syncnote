@@ -300,9 +300,31 @@ List<String> _helpText() => [
       '  <space>bn         new note',
       '  <space>fg         search',
       '',
+      _b() + 'COUNTS + REPEAT',
+      '  5j 10k 3w         count-prefix motion',
+      '  15G / :42         jump to line N',
+      '  5dd 3yy           count operators',
+      '  .                 repeat last change',
+      '',
+      _b() + 'CHAR SEARCH',
+      '  f{c} F{c}         next/prev char on line',
+      '  t{c} T{c}         up-to char',
+      '  ; ,               repeat / reverse',
+      '',
+      _b() + 'MARKS',
+      "  m{a-z}            set mark",
+      "  '{a-z}            jump to mark",
+      '  g Ctrl-g          word/char count',
+      '',
       _b() + 'COMMANDS',
       '  /                 search',
       '  :q :w :new :del :reload :help',
+      '  :qa :wqa :xa      quit-all variants',
+      '  :e <query>        fuzzy open note',
+      '  :s/pat/repl/[g]   substitute',
+      '  :%s/pat/repl/[g]  substitute all',
+      '  :set wrap|number  toggles',
+      '  :pwd :!<cmd>      shell utilities',
     ];
 
 // -------- layout --------
@@ -583,7 +605,11 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
   } else {
     b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
   }
-  b.write(_c(Colors.muted, Colors.bgBase) + ' ${(rowIdx + 1).toString().padLeft(3)} ' + _r());
+  if (s.showNumbers) {
+    b.write(_c(Colors.muted, Colors.bgBase) + ' ${(rowIdx + 1).toString().padLeft(3)} ' + _r());
+  } else {
+    b.write('  ');
+  }
   b.write(_c(Colors.fg, Colors.bgBase));
 
   final buf = s.bodyBuf;
@@ -792,9 +818,17 @@ String _statusline(AppState s, int w) {
       _c(Colors.muted, Colors.bgBase) + '   ' + ctx +
       (pos.isNotEmpty ? '   ' + _c(Colors.fg, Colors.bgBase) + pos : '') + _r();
 
+  // Pending indicators (count buffer / char-search operator)
+  String pending = '';
+  if (s.pendingCount.isNotEmpty) {
+    pending += _c(Colors.warn, Colors.bgBase) + ' [${s.pendingCount}]' + _r();
+  }
+  if (s.pendingCharSearch != null) {
+    pending += _c(Colors.warn, Colors.bgBase) + ' ${s.pendingCharSearch}_' + _r();
+  }
   final hint = _c(Colors.muted, Colors.bgBase) + _hintText(s) + '  ' + _r();
-  final gap = w - _len(left) - _len(hint);
-  return left + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + hint;
+  final gap = w - _len(left) - _len(pending) - _len(hint);
+  return left + pending + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + hint;
 }
 
 String _hintText(AppState s) => switch (s.focus) {

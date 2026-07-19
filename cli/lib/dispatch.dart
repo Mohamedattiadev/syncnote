@@ -1,5 +1,7 @@
 // Key dispatcher — maps Key events to state mutations. Pure functions where possible.
 
+import 'dart:io';
+
 import 'ai.dart';
 import 'keys.dart';
 import 'model.dart';
@@ -72,7 +74,95 @@ DispatchResult dispatch(AppState s, Key k) {
 
 // ---------------- NORMAL ----------------
 
+int _consumeCount(AppState s, {int fallback = 1}) {
+  if (s.pendingCount.isEmpty) return fallback;
+  final n = int.tryParse(s.pendingCount) ?? fallback;
+  s.pendingCount = '';
+  return n < 1 ? 1 : n;
+}
+
+void _clearCount(AppState s) {
+  s.pendingCount = '';
+}
+
+/// Char search on current line in detail buffer. op ∈ {f,F,t,T}.
+void _charSearchApply(AppState s, String op, String ch) {
+  if (s.focus != Focus.detail) return;
+  final b = s.activeBuf;
+  final line = b.currentLine();
+  final col = b.cursor.col;
+  int target = -1;
+  if (op == 'f' || op == 't') {
+    for (int i = col + 1; i < line.length; i++) {
+      if (line[i] == ch) { target = i; break; }
+    }
+    if (target < 0) { s.toast = 'not found'; return; }
+    if (op == 't') target -= 1;
+    b.cursor.col = target;
+  } else {
+    for (int i = col - 1; i >= 0; i--) {
+      if (line[i] == ch) { target = i; break; }
+    }
+    if (target < 0) { s.toast = 'not found'; return; }
+    if (op == 'T') target += 1;
+    b.cursor.col = target;
+  }
+}
+
 DispatchResult _normalMode(AppState s, Key k) {
+  // Char-search pending: capture the next char.
+  if (s.pendingCharSearch != null) {
+    final op = s.pendingCharSearch!;
+    s.pendingCharSearch = null;
+    if (k.isRune) {
+      _charSearchApply(s, op, k.rune!);
+      s.lastCharSearchOp = op;
+      s.lastCharSearchCh = k.rune;
+    }
+    return DispatchResult.none;
+  }
+  // Mark set: m{a-z}
+  if (s.pendingM) {
+    s.pendingM = false;
+    if (k.isRune && s.focus == Focus.detail) {
+      final r = k.rune!;
+      if (r.length == 1 && r.codeUnitAt(0) >= 0x61 && r.codeUnitAt(0) <= 0x7a) {
+        s.activeBuf.marks[r] = s.activeBuf.cursor.row;
+        s.toast = "mark '$r set";
+      }
+    }
+    return DispatchResult.none;
+  }
+  if (s.pendingQuote) {
+    s.pendingQuote = false;
+    if (k.isRune && s.focus == Focus.detail) {
+      final r = k.rune!;
+      final row = s.activeBuf.marks[r];
+      if (row != null) {
+        s.activeBuf.cursor.row = row.clamp(0, s.activeBuf.lines.length - 1);
+        s.activeBuf.cursor.col = 0;
+      } else {
+        s.toast = "mark '$r not set";
+      }
+    }
+    return DispatchResult.none;
+  }
+  // g Ctrl-g word/char count
+  if (s.pendingCtrlG) {
+    s.pendingCtrlG = false;
+    if (k.name == 'ctrl+g') {
+      final b = s.activeBuf;
+      final total = b.lines.length;
+      final line = b.cursor.row + 1;
+      final totalChars = b.text.length;
+      final beforeChars = b.lines.sublist(0, b.cursor.row).fold<int>(0, (a, l) => a + l.length + 1) + b.cursor.col;
+      final totalWords = _countWords(b.text);
+      final wordsBefore = _countWords(b.text.substring(0, beforeChars.clamp(0, b.text.length)));
+      s.toast = 'Line $line of $total · Word $wordsBefore of $totalWords · Char $beforeChars of $totalChars';
+      return DispatchResult.none;
+    }
+    // fall through — treat as fresh key after failed g-chord
+  }
   // Leader chords first.
   if (s.pendingLeader) {
     s.pendingLeader = false;
@@ -103,6 +193,7 @@ DispatchResult _normalMode(AppState s, Key k) {
   if (s.pendingG) {
     s.pendingG = false;
     if (k.isRune && k.rune == 'g') {
+      _clearCount(s);
       if (s.focus == Focus.list) {
         s.listCursor = 0;
       } else {
@@ -111,23 +202,34 @@ DispatchResult _normalMode(AppState s, Key k) {
     }
     return DispatchResult.none;
   }
-  // yy dd cc
+  // yy dd cc  — with optional count and dw
   if (s.pendingY) {
     s.pendingY = false;
     if (k.isRune && k.rune == 'y') {
+      final n = _consumeCount(s);
       if (s.focus == Focus.list) {
-        final n = s.currentUnderList();
-        if (n != null) {
-          s.register = n.title;
+        final note = s.currentUnderList();
+        if (note != null) {
+          s.register = note.title;
           s.toast = '⟡ yanked title';
         }
       } else {
-        s.register = s.activeBuf.currentLine();
+        final b = s.activeBuf;
+        if (n == 1) {
+          s.register = b.currentLine();
+        } else {
+          final start = b.cursor.row;
+          final end = (start + n).clamp(0, b.lines.length);
+          s.register = b.lines.sublist(start, end).join('\n');
+        }
         s.registerLinewise = true;
-        final r = s.activeBuf.cursor.row;
-        final len = s.activeBuf.currentLine().length;
-        s.flashYank(r, 0, r, len);
-        s.toast = '⟡ yanked line';
+        final start = b.cursor.row;
+        final lastRow = (start + n - 1).clamp(start, b.lines.length - 1);
+        final lastLen = b.lines[lastRow].length;
+        s.flashYank(start, 0, lastRow, lastLen);
+        s.toast = n > 1 ? '⟡ yanked $n lines' : '⟡ yanked line';
+        s.lastChangeKind = 'yy';
+        s.lastChangeCount = n;
       }
     }
     return DispatchResult.none;
@@ -135,14 +237,31 @@ DispatchResult _normalMode(AppState s, Key k) {
   if (s.pendingD) {
     s.pendingD = false;
     if (k.isRune && k.rune == 'd') {
+      final n = _consumeCount(s);
       if (s.focus == Focus.list) {
         return const DispatchResult(delete: true);
       }
       s.activeBuf.snapshot();
-      s.register = s.activeBuf.deleteLine();
+      final buf = StringBuffer();
+      for (int i = 0; i < n; i++) {
+        buf.write(s.activeBuf.deleteLine());
+      }
+      s.register = buf.toString();
       s.registerLinewise = true;
       s.dirty = true;
-      s.toast = 'deleted line';
+      s.toast = n > 1 ? 'deleted $n lines' : 'deleted line';
+      s.lastChangeKind = 'dd';
+      s.lastChangeCount = n;
+    } else if (k.isRune && k.rune == 'w' && s.focus == Focus.detail) {
+      // dw — delete from cursor to next word start (single line)
+      final n = _consumeCount(s);
+      s.activeBuf.snapshot();
+      for (int i = 0; i < n; i++) {
+        _deleteWord(s.activeBuf);
+      }
+      s.dirty = true;
+      s.lastChangeKind = 'dw';
+      s.lastChangeCount = n;
     }
     return DispatchResult.none;
   }
@@ -198,24 +317,43 @@ DispatchResult _normalMode(AppState s, Key k) {
     }
     return DispatchResult.none;
   }
+  if (k.name == 'ctrl+g' && s.pendingCtrlG) {
+    // already handled above
+  }
   if (!k.isRune) return DispatchResult.none;
   final r = k.rune;
 
+  // Count-prefix accumulation. '0' is only a count digit if we already have digits
+  // (otherwise it's move-to-line-start).
+  if (r != null && r.length == 1) {
+    final cu = r.codeUnitAt(0);
+    final isDigit = cu >= 0x30 && cu <= 0x39;
+    if (isDigit && (r != '0' || s.pendingCount.isNotEmpty)) {
+      // cap length to 6 to avoid nonsense
+      if (s.pendingCount.length < 6) s.pendingCount += r;
+      return DispatchResult.none;
+    }
+  }
+
   switch (r) {
     case ' ':
+      _clearCount(s);
       s.pendingLeader = true;
       break;
     case ':':
+      _clearCount(s);
       s.mode = Mode.cmd;
       s.cmdInput = '';
       s.cmdCursor = 0;
       break;
     case '/':
+      _clearCount(s);
       s.mode = Mode.search;
       s.searchInput = s.search;
       s.searchCursor = s.searchInput.length;
       break;
     case 'q':
+      _clearCount(s);
       if (s.focus == Focus.detail) {
         if (s.dirty) return const DispatchResult(save: true);
         s.closeDetail();
@@ -224,31 +362,40 @@ DispatchResult _normalMode(AppState s, Key k) {
       }
       break;
     case 'j':
-      _move(s, dy: 1);
+      _move(s, dy: _consumeCount(s));
       break;
     case 'k':
-      _move(s, dy: -1);
+      _move(s, dy: -_consumeCount(s));
       break;
     case 'h':
-      if ((s.focus == Focus.list || s.focus == Focus.detail) && s.treeOpen) {
+      if ((s.focus == Focus.list || s.focus == Focus.detail) && s.treeOpen && s.pendingCount.isEmpty) {
         s.lastMainFocus = s.focus;
         s.focus = Focus.tree;
       } else {
-        _move(s, dx: -1);
+        _move(s, dx: -_consumeCount(s));
       }
       break;
     case 'l':
       if (s.focus == Focus.tree) {
         s.focus = s.lastMainFocus;
       } else {
-        _move(s, dx: 1);
+        _move(s, dx: _consumeCount(s));
       }
       break;
     case 'g':
       s.pendingG = true;
+      s.pendingCtrlG = true;
       break;
     case 'G':
-      if (s.focus == Focus.list) {
+      if (s.pendingCount.isNotEmpty) {
+        final n = _consumeCount(s);
+        if (s.focus == Focus.detail) {
+          s.activeBuf.cursor.row = (n - 1).clamp(0, s.activeBuf.lines.length - 1);
+          s.activeBuf.cursor.col = 0;
+        } else if (s.focus == Focus.list) {
+          s.listCursor = (n - 1).clamp(0, s.filtered().length - 1);
+        }
+      } else if (s.focus == Focus.list) {
         s.listCursor = s.filtered().length - 1;
       } else {
         s.activeBuf.moveBottom();
@@ -261,13 +408,51 @@ DispatchResult _normalMode(AppState s, Key k) {
       if (s.focus == Focus.detail) s.activeBuf.moveEnd();
       break;
     case 'w':
-      if (s.focus == Focus.detail) s.activeBuf.wordForward();
+      if (s.focus == Focus.detail) {
+        final n = _consumeCount(s);
+        for (int i = 0; i < n; i++) s.activeBuf.wordForward();
+      }
       break;
     case 'b':
-      if (s.focus == Focus.detail) s.activeBuf.wordBack();
+      if (s.focus == Focus.detail) {
+        final n = _consumeCount(s);
+        for (int i = 0; i < n; i++) s.activeBuf.wordBack();
+      }
       break;
     case 'e':
-      if (s.focus == Focus.detail) s.activeBuf.wordEnd();
+      if (s.focus == Focus.detail) {
+        final n = _consumeCount(s);
+        for (int i = 0; i < n; i++) s.activeBuf.wordEnd();
+      }
+      break;
+    case 'f':
+    case 'F':
+    case 't':
+    case 'T':
+      if (s.focus == Focus.detail) {
+        s.pendingCharSearch = r;
+      }
+      break;
+    case ';':
+      if (s.focus == Focus.detail && s.lastCharSearchOp != null) {
+        _charSearchApply(s, s.lastCharSearchOp!, s.lastCharSearchCh!);
+      }
+      break;
+    case ',':
+      if (s.focus == Focus.detail && s.lastCharSearchOp != null) {
+        final op = s.lastCharSearchOp!;
+        final rev = op == 'f' ? 'F' : op == 'F' ? 'f' : op == 't' ? 'T' : 't';
+        _charSearchApply(s, rev, s.lastCharSearchCh!);
+      }
+      break;
+    case 'm':
+      if (s.focus == Focus.detail) s.pendingM = true;
+      break;
+    case "'":
+      if (s.focus == Focus.detail) s.pendingQuote = true;
+      break;
+    case '.':
+      _repeatLastChange(s);
       break;
     case 'H':
       // prev "tab" — cycle field (title/tags/body) or list up 5.
@@ -288,6 +473,8 @@ DispatchResult _normalMode(AppState s, Key k) {
       if (s.focus == Focus.detail) {
         s.activeBuf.snapshot();
         s.mode = Mode.insert;
+        s.insertEntry = 'i';
+        s.insertCapture.clear();
       }
       break;
     case 'I':
@@ -295,6 +482,8 @@ DispatchResult _normalMode(AppState s, Key k) {
         s.activeBuf.snapshot();
         s.activeBuf.moveHome();
         s.mode = Mode.insert;
+        s.insertEntry = 'I';
+        s.insertCapture.clear();
       }
       break;
     case 'a':
@@ -302,6 +491,8 @@ DispatchResult _normalMode(AppState s, Key k) {
         s.activeBuf.snapshot();
         s.activeBuf.moveRight();
         s.mode = Mode.insert;
+        s.insertEntry = 'a';
+        s.insertCapture.clear();
       }
       break;
     case 'A':
@@ -309,6 +500,8 @@ DispatchResult _normalMode(AppState s, Key k) {
         s.activeBuf.snapshot();
         s.activeBuf.moveEnd();
         s.mode = Mode.insert;
+        s.insertEntry = 'A';
+        s.insertCapture.clear();
       }
       break;
     case 'o':
@@ -316,6 +509,8 @@ DispatchResult _normalMode(AppState s, Key k) {
         s.activeBuf.snapshot();
         s.activeBuf.openLineBelow();
         s.mode = Mode.insert;
+        s.insertEntry = 'o';
+        s.insertCapture.clear();
       }
       break;
     case 'O':
@@ -323,6 +518,8 @@ DispatchResult _normalMode(AppState s, Key k) {
         s.activeBuf.snapshot();
         s.activeBuf.openLineAbove();
         s.mode = Mode.insert;
+        s.insertEntry = 'O';
+        s.insertCapture.clear();
       }
       break;
     case 'u':
@@ -358,11 +555,15 @@ DispatchResult _normalMode(AppState s, Key k) {
       break;
     case 'x':
       if (s.focus == Focus.detail) {
+        final n = _consumeCount(s);
         s.activeBuf.snapshot();
-        s.register = s.activeBuf.currentLine()
-            .substring(s.activeBuf.cursor.col, (s.activeBuf.cursor.col + 1).clamp(0, s.activeBuf.currentLine().length));
-        s.activeBuf.deleteCharAtCursor();
+        for (int i = 0; i < n; i++) {
+          if (s.activeBuf.cursor.col >= s.activeBuf.currentLine().length) break;
+          s.activeBuf.deleteCharAtCursor();
+        }
         s.dirty = true;
+        s.lastChangeKind = 'x';
+        s.lastChangeCount = n;
       }
       break;
     case 'p':
@@ -370,6 +571,7 @@ DispatchResult _normalMode(AppState s, Key k) {
         s.activeBuf.snapshot();
         s.activeBuf.paste(s.register, linewise: s.registerLinewise);
         s.dirty = true;
+        s.lastChangeKind = 'p';
       }
       break;
     case 'n':
@@ -631,20 +833,42 @@ DispatchResult _insertMode(AppState s, Key k) {
   }
   if (k.name == 'esc') {
     s.mode = Mode.normal;
+    if (s.insertEntry != null) {
+      s.lastChangeKind = 'insert:${s.insertEntry}';
+      s.lastChangePayload = s.insertCapture.toString();
+      s.lastChangeCount = 1;
+      s.insertEntry = null;
+    }
     return DispatchResult.none;
   }
   if (k.name == 'ctrl+s') return const DispatchResult(save: true);
   if (k.name == 'enter') {
     if (s.fieldIdx == 2) {
       b.insertNewline();
+      s.insertCapture.write('\n');
       s.dirty = true;
     } else {
       // title/tags — Enter exits insert
       s.mode = Mode.normal;
+      if (s.insertEntry != null) {
+        s.lastChangeKind = 'insert:${s.insertEntry}';
+        s.lastChangePayload = s.insertCapture.toString();
+        s.insertEntry = null;
+      }
     }
     return DispatchResult.none;
   }
-  if (k.name == 'backspace') { b.backspace(); s.dirty = true; return DispatchResult.none; }
+  if (k.name == 'backspace') {
+    b.backspace();
+    s.dirty = true;
+    // shrink capture if we've captured anything
+    final str = s.insertCapture.toString();
+    if (str.isNotEmpty) {
+      s.insertCapture.clear();
+      s.insertCapture.write(str.substring(0, str.length - 1));
+    }
+    return DispatchResult.none;
+  }
   if (k.name == 'left')  { b.moveLeft();  return DispatchResult.none; }
   if (k.name == 'right') { b.moveRight(); return DispatchResult.none; }
   if (k.name == 'up')    { b.moveUp();    return DispatchResult.none; }
@@ -653,6 +877,7 @@ DispatchResult _insertMode(AppState s, Key k) {
   if (k.name == 'end')   { b.moveEnd();   return DispatchResult.none; }
   if (k.isRune) {
     b.insertRune(k.rune!);
+    s.insertCapture.write(k.rune!);
     s.dirty = true;
   }
   return DispatchResult.none;
@@ -773,6 +998,47 @@ DispatchResult _cmdMode(AppState s, Key k) {
 
 DispatchResult _runCmd(AppState s, String cmd) {
   if (cmd.isEmpty) return DispatchResult.none;
+
+  // :<N> — jump to line N in detail focus.
+  if (RegExp(r'^\d+$').hasMatch(cmd)) {
+    final n = int.parse(cmd);
+    if (s.focus == Focus.detail) {
+      s.activeBuf.cursor.row = (n - 1).clamp(0, s.activeBuf.lines.length - 1);
+      s.activeBuf.cursor.col = 0;
+    } else if (s.focus == Focus.list) {
+      s.listCursor = (n - 1).clamp(0, s.filtered().length - 1);
+    }
+    return DispatchResult.none;
+  }
+
+  // :s/pat/repl/[g] and :%s/pat/repl/[g]
+  final subMatch = RegExp(r'^(%?)s/(.*?)/(.*?)(/([gi]*))?$').firstMatch(cmd);
+  if (subMatch != null) {
+    return _runSubstitute(s,
+        allLines: subMatch.group(1) == '%',
+        pattern: subMatch.group(2) ?? '',
+        replacement: subMatch.group(3) ?? '',
+        flags: subMatch.group(5) ?? '');
+  }
+
+  // :e <query> — fuzzy open note by title
+  if (cmd.startsWith('e ') || cmd == 'e') {
+    final q = cmd.length > 2 ? cmd.substring(2).trim() : '';
+    if (q.isEmpty) { s.toast = 'usage: :e <query>'; s.toastErr = true; return DispatchResult.none; }
+    return _runOpenFuzzy(s, q);
+  }
+
+  // :!<shell> — shell command
+  if (cmd.startsWith('!')) {
+    _runShell(s, cmd.substring(1));
+    return DispatchResult.none;
+  }
+
+  // :set <opt>
+  if (cmd.startsWith('set ') || cmd == 'set') {
+    return _runSet(s, cmd == 'set' ? '' : cmd.substring(4).trim());
+  }
+
   final parts = cmd.split(RegExp(r'\s+'));
   final head = parts.first;
   final rest = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -794,6 +1060,27 @@ DispatchResult _runCmd(AppState s, String cmd) {
         return DispatchResult.none;
       }
       return const DispatchResult(quit: true);
+    case 'qa':
+    case 'qall':
+    case 'quitall':
+      // quit app regardless of focus; dirty buffers block unless forced
+      if (s.dirty && s.focus == Focus.detail) {
+        s.toast = 'unsaved changes — use :qa! or :wqa';
+        s.toastErr = true;
+        return DispatchResult.none;
+      }
+      return const DispatchResult(quit: true);
+    case 'qa!':
+    case 'qall!':
+    case 'quitall!':
+      s.dirty = false;
+      return const DispatchResult(quit: true);
+    case 'wqa':
+    case 'wqall':
+    case 'xa':
+    case 'xall':
+      // save + quit app
+      return const DispatchResult(save: true, quit: true);
     case 'w':
     case 'write':
       return const DispatchResult(save: true);
@@ -819,9 +1106,209 @@ DispatchResult _runCmd(AppState s, String cmd) {
     case 'h':
       s.showHelp = true;
       break;
+    case 'pwd':
+      s.toast = Directory.current.path;
+      break;
     default:
       s.toast = 'unknown: $head';
       s.toastErr = true;
+  }
+  return DispatchResult.none;
+}
+
+// ---------------- helper impls for new features ----------------
+
+int _countWords(String s) {
+  final trimmed = s.trim();
+  if (trimmed.isEmpty) return 0;
+  return trimmed.split(RegExp(r'\s+')).length;
+}
+
+void _deleteWord(dynamic buf) {
+  // buf is Buffer; delete from cursor.col to next-word-start on current line.
+  final line = buf.currentLine() as String;
+  final start = buf.cursor.col as int;
+  if (start >= line.length) return;
+  int i = start;
+  // consume word chars, then whitespace
+  bool _isW(int cu) =>
+      (cu >= 0x30 && cu <= 0x39) ||
+      (cu >= 0x41 && cu <= 0x5a) ||
+      (cu >= 0x61 && cu <= 0x7a) ||
+      cu == 0x5f;
+  if (i < line.length && _isW(line.codeUnitAt(i))) {
+    while (i < line.length && _isW(line.codeUnitAt(i))) i++;
+  } else {
+    while (i < line.length && !_isW(line.codeUnitAt(i))) i++;
+  }
+  while (i < line.length && line[i] == ' ') i++;
+  buf.lines[buf.cursor.row] = line.substring(0, start) + line.substring(i);
+}
+
+void _repeatLastChange(AppState s) {
+  final kind = s.lastChangeKind;
+  if (kind == null) return;
+  final b = s.focus == Focus.detail ? s.activeBuf : null;
+  if (b == null && !kind.startsWith('insert')) return;
+  if (kind.startsWith('insert:')) {
+    if (s.focus != Focus.detail) return;
+    final entry = kind.substring('insert:'.length);
+    b!.snapshot();
+    switch (entry) {
+      case 'I': b.moveHome(); break;
+      case 'A': b.moveEnd(); break;
+      case 'a': b.moveRight(); break;
+      case 'o': b.openLineBelow(); break;
+      case 'O': b.openLineAbove(); break;
+    }
+    final text = s.lastChangePayload ?? '';
+    for (final ch in text.split('')) {
+      if (ch == '\n') {
+        b.insertNewline();
+      } else {
+        b.insertRune(ch);
+      }
+    }
+    s.dirty = true;
+    return;
+  }
+  switch (kind) {
+    case 'x':
+      b!.snapshot();
+      for (int i = 0; i < s.lastChangeCount; i++) {
+        if (b.cursor.col >= b.currentLine().length) break;
+        b.deleteCharAtCursor();
+      }
+      s.dirty = true;
+      break;
+    case 'dd':
+      b!.snapshot();
+      for (int i = 0; i < s.lastChangeCount; i++) {
+        b.deleteLine();
+      }
+      s.dirty = true;
+      break;
+    case 'dw':
+      b!.snapshot();
+      for (int i = 0; i < s.lastChangeCount; i++) {
+        _deleteWord(b);
+      }
+      s.dirty = true;
+      break;
+    case 'p':
+      if (s.register.isEmpty) return;
+      b!.snapshot();
+      b.paste(s.register, linewise: s.registerLinewise);
+      s.dirty = true;
+      break;
+    case 'yy':
+      // Yank isn't really a "change" — ignore.
+      break;
+  }
+}
+
+DispatchResult _runSubstitute(AppState s, {
+  required bool allLines,
+  required String pattern,
+  required String replacement,
+  required String flags,
+}) {
+  if (s.focus != Focus.detail) {
+    s.toast = ':s only in editor';
+    s.toastErr = true;
+    return DispatchResult.none;
+  }
+  if (pattern.isEmpty) {
+    s.toast = 'empty pattern';
+    s.toastErr = true;
+    return DispatchResult.none;
+  }
+  RegExp re;
+  try {
+    re = RegExp(pattern, caseSensitive: !flags.contains('i'));
+  } catch (e) {
+    s.toast = 'bad pattern';
+    s.toastErr = true;
+    return DispatchResult.none;
+  }
+  final b = s.activeBuf;
+  b.snapshot();
+  final global = flags.contains('g');
+  int count = 0;
+  final rows = allLines
+      ? List<int>.generate(b.lines.length, (i) => i)
+      : [b.cursor.row];
+  for (final r in rows) {
+    final line = b.lines[r];
+    String replaced;
+    if (global) {
+      replaced = line.replaceAllMapped(re, (m) { count++; return replacement; });
+    } else {
+      final m = re.firstMatch(line);
+      if (m != null) { count++; replaced = line.replaceFirst(re, replacement); }
+      else { replaced = line; }
+    }
+    b.lines[r] = replaced;
+  }
+  b.clamp();
+  if (count > 0) {
+    s.dirty = true;
+    s.toast = '$count substitutions';
+  } else {
+    s.toast = 'no match';
+  }
+  return DispatchResult.none;
+}
+
+DispatchResult _runOpenFuzzy(AppState s, String query) {
+  final q = query.toLowerCase();
+  final scored = s.notes.map((n) {
+    final hay = n.title.toLowerCase();
+    return (AppState.fuzzyScore(q, hay), n);
+  }).where((e) => e.$1 > 0).toList()
+    ..sort((a, b) => b.$1.compareTo(a.$1));
+  if (scored.isEmpty) {
+    s.toast = 'no match';
+    s.toastErr = true;
+    return DispatchResult.none;
+  }
+  s.openNoteForEdit(scored.first.$2);
+  return DispatchResult.none;
+}
+
+void _runShell(AppState s, String shellCmd) {
+  final cmd = shellCmd.trim();
+  if (cmd.isEmpty) { s.toast = 'usage: :!<cmd>'; s.toastErr = true; return; }
+  try {
+    final r = Process.runSync('sh', ['-c', cmd]);
+    final out = (r.stdout as String).split('\n').firstWhere((l) => l.isNotEmpty, orElse: () => '');
+    s.toast = out.isEmpty
+        ? 'exit ${r.exitCode}'
+        : '$out (exit ${r.exitCode})';
+    s.toastErr = r.exitCode != 0;
+  } catch (e) {
+    s.toast = 'shell err: $e';
+    s.toastErr = true;
+  }
+}
+
+DispatchResult _runSet(AppState s, String opt) {
+  if (opt.isEmpty) {
+    s.toast = 'wrap=${s.wrapMode} number=${s.showNumbers}';
+    return DispatchResult.none;
+  }
+  switch (opt) {
+    case 'wrap':      s.wrapMode = true; s.toast = 'wrap on'; break;
+    case 'nowrap':    s.wrapMode = false; s.toast = 'wrap off'; break;
+    case 'number':    s.showNumbers = true; s.toast = 'number on'; break;
+    case 'nonumber':  s.showNumbers = false; s.toast = 'number off'; break;
+    default:
+      if (opt.startsWith('theme ')) {
+        s.toast = 'themes: default (only theme available)';
+      } else {
+        s.toast = 'unknown :set option';
+        s.toastErr = true;
+      }
   }
   return DispatchResult.none;
 }

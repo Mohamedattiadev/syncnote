@@ -48,6 +48,32 @@ class AppState {
   bool pendingLeaderB = false;
   bool pendingLeaderF = false;
   bool pendingTab = false;
+  bool pendingM = false; // m{a-z} set mark
+  bool pendingQuote = false; // '{a-z} jump to mark
+  bool pendingCtrlG = false; // g then Ctrl-g
+
+  // Count prefix (digit sequence before a motion), e.g. "5" for 5j
+  String pendingCount = '';
+
+  // Char search: pending is the operator (f/F/t/T) awaiting the next char.
+  String? pendingCharSearch;
+  // Last completed char search — for ; and ,
+  String? lastCharSearchOp;
+  String? lastCharSearchCh;
+
+  // Last change — for `.` repeat.
+  // kind: 'insert' payload=text, 'x','dd','dw','p','o','O','yy'
+  String? lastChangeKind;
+  String? lastChangePayload;
+  int lastChangeCount = 1;
+
+  // Currently accumulating insert-session text (between i/a/o/O/I/A and Esc)
+  final StringBuffer insertCapture = StringBuffer();
+  String? insertEntry; // 'i'|'I'|'a'|'A'|'o'|'O'
+
+  // Settings toggles.
+  bool wrapMode = false;
+  bool showNumbers = true;
 
   // Register (yank/delete buffer)
   String register = '';
