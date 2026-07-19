@@ -40,7 +40,10 @@ Frame renderFrame(AppState s, int w, int h) {
   // Chrome: brand(1) + rule(1) + rule(1) + statusline(1) = 4 rows.
   // bodyH = h - 4 so total rows fills terminal exactly and statusline
   // lands on the last row (h-1), where the cursor calc points.
-  final bodyH = h - 4;
+  // In cmd mode with input, reserve up to 6 rows for autocomplete popup.
+  final completions = s.mode == Mode.cmd ? cmdCompletions(s.cmdInput) : const <String>[];
+  final popupH = completions.isEmpty ? 0 : completions.length;
+  final bodyH = h - 4 - popupH;
   final layout = _computeLayout(s, w);
   final treeW = layout.tree;
   final previewW = layout.preview;
@@ -72,6 +75,12 @@ Frame renderFrame(AppState s, int w, int h) {
     }
   }
 
+  if (popupH > 0) {
+    for (final c in completions) {
+      final label = '  :$c';
+      rows.add(_padRight(_c(Colors.fg, Colors.bgSurface) + label + _r(), w));
+    }
+  }
   rows.add(_thinRule(w));
   rows.add(_statusline(s, w));
 
@@ -141,6 +150,60 @@ String _brandBar(AppState s, int w) {
 }
 
 String _thinRule(int w) => _c(Colors.muted, Colors.bgBase) + '─' * w + _r();
+
+// -------- command autocomplete --------
+
+/// All known ex-commands (bare heads, no arg schema).
+const List<String> allCmds = [
+  'q', 'quit', 'q!', 'quit!',
+  'qa', 'qa!', 'qall', 'qall!', 'quitall', 'quitall!',
+  'wqa', 'wqall', 'xa', 'xall',
+  'w', 'write', 'wq', 'x',
+  'new', 'del',
+  'r', 'reload',
+  'search',
+  'help',
+  'pwd', 'cd',
+  'set',
+  'sort', 'sort!', 'sortu',
+  'e', 'open', 'o',
+  's', '%s',
+  'import', 'export', 'exporthtml',
+  'web',
+  'read', 'pipe', 'copy', 'yank', 'paste',
+  'daily', 'today',
+  'g/', 'v/',
+  'bl', 'backlinks',
+  'encrypt', 'decrypt',
+  'undolist', 'undol',
+  'reg', 'registers', 'marks',
+  '!',
+];
+
+/// Return up to 6 command completions for the given cmd input prefix.
+/// Empty input returns first 6 alphabetical commands.
+List<String> cmdCompletions(String input) {
+  final trimmed = input.trimLeft();
+  if (trimmed.isEmpty) {
+    final sorted = List<String>.of(allCmds)..sort();
+    return sorted.take(6).toList();
+  }
+  // Prefix match first, then substring.
+  final lower = trimmed.toLowerCase();
+  final prefix = <String>[];
+  final substr = <String>[];
+  for (final c in allCmds) {
+    final cl = c.toLowerCase();
+    if (cl.startsWith(lower)) {
+      prefix.add(c);
+    } else if (cl.contains(lower)) {
+      substr.add(c);
+    }
+  }
+  prefix.sort();
+  substr.sort();
+  return [...prefix, ...substr].take(6).toList();
+}
 
 // -------- help --------
 

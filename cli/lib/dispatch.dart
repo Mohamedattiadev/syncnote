@@ -6,6 +6,7 @@ import 'dart:io';
 import 'ai.dart';
 import 'keys.dart';
 import 'model.dart';
+import 'render.dart' show cmdCompletions;
 import 'state.dart';
 
 /// Public entry: applies a key event to state. Returns true if async data
@@ -1008,6 +1009,15 @@ DispatchResult _cmdMode(AppState s, Key k) {
   if (k.name == 'esc') {
     s.cmdInput = '';
     s.mode = Mode.normal;
+    return DispatchResult.none;
+  }
+  if (k.name == 'tab') {
+    // Accept top completion (from render.dart cmdCompletions).
+    final list = cmdCompletions(s.cmdInput);
+    if (list.isNotEmpty) {
+      s.cmdInput = list.first + ' ';
+      s.cmdCursor = s.cmdInput.length;
+    }
     return DispatchResult.none;
   }
   if (k.name == 'enter') {
