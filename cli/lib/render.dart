@@ -314,6 +314,7 @@ List<String> _helpText() => [
       _b() + 'MARKS',
       "  m{a-z}            set mark",
       "  '{a-z}            jump to mark",
+      '  "{a-z}y  "{a-z}p  named registers',
       '  g Ctrl-g          word/char count',
       '',
       _b() + 'COMMANDS',

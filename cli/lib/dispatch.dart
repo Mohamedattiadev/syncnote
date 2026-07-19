@@ -111,6 +111,18 @@ void _charSearchApply(AppState s, String op, String ch) {
 }
 
 DispatchResult _normalMode(AppState s, Key k) {
+  // Register selector: `"{a-z}` sets activeRegister for next op
+  if (s.pendingRegister) {
+    s.pendingRegister = false;
+    if (k.isRune) {
+      final r = k.rune!;
+      if (r.length == 1 && r.codeUnitAt(0) >= 0x61 && r.codeUnitAt(0) <= 0x7a) {
+        s.activeRegister = r;
+        s.toast = 'reg "$r';
+      }
+    }
+    return DispatchResult.none;
+  }
   // Char-search pending: capture the next char.
   if (s.pendingCharSearch != null) {
     final op = s.pendingCharSearch!;
@@ -231,6 +243,7 @@ DispatchResult _normalMode(AppState s, Key k) {
         final lastRow = (start + n - 1).clamp(start, b.lines.length - 1);
         final lastLen = b.lines[lastRow].length;
         s.flashYank(start, 0, lastRow, lastLen);
+        _stashNamed(s, linewise: true);
         s.toast = n > 1 ? '⟡ yanked $n lines' : '⟡ yanked line';
         s.lastChangeKind = 'yy';
         s.lastChangeCount = n;
@@ -252,6 +265,7 @@ DispatchResult _normalMode(AppState s, Key k) {
       }
       s.register = buf.toString();
       s.registerLinewise = true;
+      _stashNamed(s, linewise: true);
       s.dirty = true;
       s.toast = n > 1 ? 'deleted $n lines' : 'deleted line';
       s.lastChangeKind = 'dd';
@@ -571,12 +585,24 @@ DispatchResult _normalMode(AppState s, Key k) {
       }
       break;
     case 'p':
-      if (s.focus == Focus.detail && s.register.isNotEmpty) {
+      if (s.focus == Focus.detail) {
+        final reg = s.activeRegister;
+        final txt = reg != null
+            ? (s.namedRegisters[reg] ?? '')
+            : s.register;
+        final lw = reg != null
+            ? (s.namedRegistersLinewise[reg] ?? false)
+            : s.registerLinewise;
+        s.activeRegister = null;
+        if (txt.isEmpty) break;
         s.activeBuf.snapshot();
-        s.activeBuf.paste(s.register, linewise: s.registerLinewise);
+        s.activeBuf.paste(txt, linewise: lw);
         s.dirty = true;
         s.lastChangeKind = 'p';
       }
+      break;
+    case '"':
+      s.pendingRegister = true;
       break;
     case 'n':
       return const DispatchResult(create: true);
@@ -919,6 +945,7 @@ DispatchResult _visualMode(AppState s, Key k) {
       }
       s.register = s.activeBuf.yankSelection();
       s.registerLinewise = s.mode == Mode.visualLine;
+      _stashNamed(s, linewise: s.registerLinewise);
       s.activeBuf.clearVisual();
       s.mode = Mode.normal;
       s.toast = '⟡ yanked ${s.register.length} chars';
@@ -927,12 +954,14 @@ DispatchResult _visualMode(AppState s, Key k) {
     case 'x':
       s.register = s.activeBuf.deleteSelection();
       s.registerLinewise = s.mode == Mode.visualLine;
+      _stashNamed(s, linewise: s.registerLinewise);
       s.mode = Mode.normal;
       s.dirty = true;
       break;
     case 'c':
       s.register = s.activeBuf.deleteSelection();
       s.registerLinewise = s.mode == Mode.visualLine;
+      _stashNamed(s, linewise: s.registerLinewise);
       s.mode = Mode.insert;
       s.dirty = true;
       break;
@@ -1202,6 +1231,14 @@ DispatchResult _runCmd(AppState s, String cmd) {
 }
 
 // ---------------- helper impls for new features ----------------
+
+void _stashNamed(AppState s, {required bool linewise}) {
+  final r = s.activeRegister;
+  if (r == null) return;
+  s.namedRegisters[r] = s.register;
+  s.namedRegistersLinewise[r] = linewise;
+  s.activeRegister = null;
+}
 
 int _countWords(String s) {
   final trimmed = s.trim();

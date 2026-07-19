@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_selectionarea/flutter_markdown_selectionarea.dart';
 
 import '../config/theme.dart';
+import '../widgets/pressable_scale.dart';
 import '../models/note.dart';
 import '../providers.dart';
 import '../services/ai.dart';
@@ -745,16 +746,35 @@ class _EmptyChat extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              width: 200,
+              height: 200,
               decoration: BoxDecoration(
-                color: AppTheme.accent.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.accent.withValues(alpha: 0.22),
+                    AppTheme.primary.withValues(alpha: 0.12),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.overlay.withValues(alpha: 0.4)),
               ),
-              child: const Icon(Icons.auto_awesome,
-                  size: 40, color: AppTheme.accent),
+              child: Stack(alignment: Alignment.center, children: [
+                Positioned(
+                  top: 40, left: 40,
+                  child: Icon(Icons.auto_awesome,
+                      size: 80, color: AppTheme.accent.withValues(alpha: 0.85)),
+                ),
+                Positioned(
+                  bottom: 32, right: 32,
+                  child: Icon(Icons.chat_bubble_outline,
+                      size: 40, color: AppTheme.primary.withValues(alpha: 0.75)),
+                ),
+              ]),
             ),
-            const SizedBox(height: 20),
-            const Text('Ask me anything',
+            const SizedBox(height: 24),
+            const Text('Ask anything',
                 style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
@@ -932,34 +952,30 @@ class _Composer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               // Integrated send button — inside the input pill on the right.
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: canSend ? AppTheme.primary : AppTheme.overlay,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
+              PressableScale(
+                onTap: canSend ? () => onSend() : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: canSend ? AppTheme.primary : AppTheme.overlay,
                     borderRadius: BorderRadius.circular(16),
-                    onTap: canSend ? () => onSend() : null,
-                    child: Center(
-                      child: busy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppTheme.base),
-                            )
-                          : Icon(Icons.arrow_upward,
-                              size: 20,
-                              color: canSend
-                                  ? AppTheme.base
-                                  : AppTheme.muted),
-                    ),
+                  ),
+                  child: Center(
+                    child: busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppTheme.base),
+                          )
+                        : Icon(Icons.arrow_upward,
+                            size: 20,
+                            color: canSend
+                                ? AppTheme.base
+                                : AppTheme.muted),
                   ),
                 ),
               ),

@@ -75,4 +75,34 @@ void main() {
       expect(s.activeBuf.lines, ['a-good', 'c-good']);
     });
   });
+
+  group('named registers', () {
+    test('"ay yy stashes current line into register a', () {
+      final s = _detail('hello\nworld');
+      // gg goes top
+      dispatch(s, rune('g'));
+      dispatch(s, rune('g'));
+      dispatch(s, rune('"'));
+      dispatch(s, rune('a'));
+      dispatch(s, rune('y'));
+      dispatch(s, rune('y'));
+      expect(s.namedRegisters['a'], 'hello');
+    });
+    test('"ap pastes from register a', () {
+      final s = _detail('alpha\nbeta');
+      dispatch(s, rune('g'));
+      dispatch(s, rune('g'));
+      dispatch(s, rune('"'));
+      dispatch(s, rune('a'));
+      dispatch(s, rune('y'));
+      dispatch(s, rune('y'));
+      // Move down to beta and paste
+      dispatch(s, rune('j'));
+      dispatch(s, rune('"'));
+      dispatch(s, rune('a'));
+      dispatch(s, rune('p'));
+      expect(s.activeBuf.lines.contains('alpha'), true);
+      expect(s.activeBuf.lines.length, 3);
+    });
+  });
 }

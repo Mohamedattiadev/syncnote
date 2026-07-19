@@ -17,6 +17,7 @@ class StatsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('error: $e')),
         data: (notes) {
+          if (notes.isEmpty) return const _StatsEmpty();
           final stats = _compute(notes);
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -223,4 +224,60 @@ class _ActivityHeatmap extends StatelessWidget {
       }),
     );
   }
+}
+
+class _StatsEmpty extends StatelessWidget {
+  const _StatsEmpty();
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.warning.withValues(alpha: 0.20),
+                    AppTheme.accent.withValues(alpha: 0.10),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.overlay.withValues(alpha: 0.4)),
+              ),
+              child: Stack(alignment: Alignment.center, children: [
+                Positioned(
+                  top: 40, left: 40,
+                  child: Icon(Icons.bar_chart,
+                      size: 80, color: AppTheme.warning.withValues(alpha: 0.85)),
+                ),
+                Positioned(
+                  bottom: 32, right: 32,
+                  child: Icon(Icons.trending_up,
+                      size: 40, color: AppTheme.accent.withValues(alpha: 0.75)),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 24),
+            const Text('No data yet',
+                style: TextStyle(
+                    color: AppTheme.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3)),
+            const SizedBox(height: 8),
+            const SizedBox(
+              width: 280,
+              child: Text(
+                'Write a few notes to see tag distribution, streaks, and activity.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTheme.muted, fontSize: 14, height: 1.5),
+              ),
+            ),
+          ]),
+        ),
+      );
 }

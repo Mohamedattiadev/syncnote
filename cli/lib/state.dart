@@ -79,6 +79,14 @@ class AppState {
   String register = '';
   bool registerLinewise = false;
 
+  // Named registers "a-"z
+  final Map<String, String> namedRegisters = {};
+  final Map<String, bool> namedRegistersLinewise = {};
+
+  // Pending register selector: `"` awaiting next char
+  bool pendingRegister = false;
+  String? activeRegister; // 'a'..'z' — applied to next y/d/p op
+
   // Feedback
   String toast = '';
   bool toastErr = false;
