@@ -215,60 +215,93 @@ List<String> cmdCompletions(String input) {
 Frame _renderFzfSearch(AppState s, int w, int h) {
   final rows = <String>[];
 
-  // Filter live using search input
-  final query = s.searchInput.toLowerCase();
-  final scored = <(int, dynamic)>[];
-  for (final n in s.notes) {
-    final hay = '${n.title.toLowerCase()} ${n.body.toLowerCase()} ${n.tags.join(" ").toLowerCase()}';
-    final score = AppState.fuzzyScore(query, hay);
-    if (query.isEmpty || score > 0) scored.add((score, n));
-  }
-  scored.sort((a, b) => b.$1.compareTo(a.$1));
-
+  // Use the same filter as the list so the highlighted row === what
+  // Enter opens. Live-search updates s.search on each keystroke.
+  final scored = s.filtered();
   final matched = scored.length;
   final total = s.notes.length;
 
-  // fzf-style header line
-  final header = _c(Colors.fg, Colors.bgBase) + '  ' +
-      _c(Colors.accent, Colors.bgBase) + '  fzf ' + _r();
+  // Clamp cursor to matches.
+  final cursor = matched == 0 ? 0 : s.listCursor.clamp(0, matched - 1);
+  s.listCursor = cursor;
+
+  // Two-pane split: list on left, preview on right (when wide enough).
+  final showPreview = w >= 80 && matched > 0;
+  final listW = showPreview ? (w * 0.45).floor().clamp(36, 60) : w;
+  final previewW = showPreview ? w - listW - 1 : 0;
+
+  // Header row
+  final header = _c(Colors.accent, Colors.bgBase) + '  fzf' + _r();
   rows.add(_padRight(header, w));
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
 
-  // Prompt line
+  // Prompt + right-aligned counter (single line)
   final selCount = matched > 0 ? 1 : 0;
-  final counter = _c(Colors.muted, Colors.bgBase) + '  ${matched}/${total} ' +
-      _c(Colors.warn, Colors.bgBase) + '($selCount)' + _r();
-  final prompt = _c(Colors.warn, Colors.bgBase) + '  > ' + _r() +
+  final counterText = ' $matched/$total ($selCount) ';
+  final promptPlain = '  > ${s.searchInput}';
+  final gap = w - promptPlain.length - counterText.length;
+  final promptRow = _c(Colors.warn, Colors.bgBase) + '  > ' + _r() +
       _c(Colors.fg, Colors.bgBase) + s.searchInput + _r() +
-      _c(Colors.muted, Colors.bgBase) + '  '.padRight((w ~/ 3).clamp(20, 40)) + _r();
-  rows.add(_padRight(prompt + counter, w));
+      (gap > 0 ? ' ' * gap : ' ') +
+      _c(Colors.muted, Colors.bgBase) + '$matched/$total ' + _r() +
+      _c(Colors.warn, Colors.bgBase) + '($selCount) ' + _r();
+  rows.add(_padRight(promptRow, w));
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
 
-  // Results list
+  // Body rows
   final avail = h - 6;
-  final cursor = 0; // always highlight first for now
-  for (int i = 0; i < avail; i++) {
-    if (i >= scored.length) {
-      rows.add(_padRight('', w));
-      continue;
+  final previewLines = <String>[];
+  if (showPreview) {
+    final n = scored[cursor];
+    previewLines.add(_c(Colors.accent, Colors.bgBase) + _b() +
+        (n.title.isEmpty ? '(untitled)' : n.title) + _r());
+    if (n.tags.isNotEmpty) {
+      previewLines.add(_c(Colors.muted, Colors.bgBase) +
+          n.tags.map((t) => '#$t').join(' ') + _r());
     }
-    final n = scored[i].$2;
-    final sel = i == cursor;
-    final title = n.title.isEmpty ? '(untitled)' : n.title;
-    final tags = n.tags.isEmpty ? '' : '   ' + (n.tags as List<String>).map((t) => '#$t').join(' ');
-    final marker = sel
-        ? _c(Colors.warn, Colors.bgBase) + '❯ ' + _r()
-        : _c(Colors.fg, Colors.bgBase) + '  ' + _r();
-    final titleStyle = sel
-        ? _c(Colors.accent, Colors.bgBase) + _b()
-        : _c(Colors.fg, Colors.bgBase);
-    rows.add(_padRight('  ' + marker + titleStyle + title + _r() +
-        _c(Colors.muted, Colors.bgBase) + tags + _r(), w));
+    previewLines.add('');
+    for (final ln in n.body.split('\n')) {
+      var s0 = ln;
+      if (s0.length > previewW - 2) s0 = s0.substring(0, previewW - 2);
+      previewLines.add(_c(Colors.fg, Colors.bgBase) + s0 + _r());
+      if (previewLines.length > avail) break;
+    }
+  }
+
+  for (int i = 0; i < avail; i++) {
+    final b = StringBuffer();
+    // Left column: list row
+    if (i >= scored.length) {
+      b.write(_padRight('', listW));
+    } else {
+      final n = scored[i];
+      final sel = i == cursor;
+      final title = n.title.isEmpty ? '(untitled)' : n.title;
+      final tags = n.tags.isEmpty
+          ? ''
+          : '   ' + n.tags.map((t) => '#$t').join(' ');
+      final marker = sel
+          ? _c(Colors.warn, Colors.bgBase) + '❯ ' + _r()
+          : _c(Colors.fg, Colors.bgBase) + '  ' + _r();
+      final titleStyle = sel
+          ? _c(Colors.accent, Colors.bgBase) + _b()
+          : _c(Colors.fg, Colors.bgBase);
+      final left = '  ' + marker + titleStyle + title + _r() +
+          _c(Colors.muted, Colors.bgBase) + tags + _r();
+      b.write(_padRight(left, listW));
+    }
+    // Divider + right column: preview
+    if (showPreview) {
+      b.write(_c(Colors.muted, Colors.bgBase) + '│' + _r());
+      final line = i < previewLines.length ? previewLines[i] : '';
+      b.write(_padRight(' ' + line, previewW));
+    }
+    rows.add(_padRight(b.toString(), w));
   }
 
   // Footer hint
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) +
-      '  Enter apply · Esc cancel' + _r(), w));
+      '  Enter open · ↑/↓ · Ctrl+P/N · Esc cancel' + _r(), w));
 
   return Frame(rows, cursorRow: 2, cursorCol: 4 + s.searchCursor);
 }
@@ -738,8 +771,21 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
       b.write(ch);
     }
   }
-  final pad = maxW - line.length;
-  if (pad > 0) b.write(' ' * pad);
+  // Cursor sitting past line end (empty line, or col == length) — draw
+  // a phantom block on the first pad cell so cursor stays visible.
+  final cursorPast = rowIdx == cursorRow &&
+      s.fieldIdx == 2 &&
+      s.mode != Mode.insert &&
+      buf.cursor.col >= line.length &&
+      line.length < maxW;
+  if (cursorPast) {
+    b.write(_c(Colors.black, Colors.bgPrimary) + ' ' + _c(Colors.fg, Colors.bgBase));
+    final pad = maxW - line.length - 1;
+    if (pad > 0) b.write(' ' * pad);
+  } else {
+    final pad = maxW - line.length;
+    if (pad > 0) b.write(' ' * pad);
+  }
   b.write(_r());
   return _padRight(b.toString(), w);
 }
