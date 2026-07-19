@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/note.dart';
 import '../providers.dart';
+import '../widgets/fade_scale_route.dart';
 
 class EditorScreen extends ConsumerStatefulWidget {
   final Note? note;
@@ -133,7 +134,33 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       final visual = done ? '~~$rest~~' : rest;
       out.add('$indent- [$box](task:$i) $visual');
     }
-    return out.join('\n');
+    // Wiki-links: [[title]] → [title](wiki:title)
+    return out.join('\n').replaceAllMapped(
+        RegExp(r'\[\[([^\]]+)\]\]'),
+        (m) => '[${m.group(1)}](wiki:${Uri.encodeComponent(m.group(1)!.trim())})');
+  }
+
+  void _openWikiLink(String title) {
+    final all = ref.read(notesStreamProvider).asData?.value ?? const [];
+    final q = title.toLowerCase();
+    final match = all.firstWhere(
+      (n) => n.title.toLowerCase() == q,
+      orElse: () => all.firstWhere(
+        (n) => n.title.toLowerCase().contains(q),
+        orElse: () => Note(
+          id: '', userId: '', title: '', body: '',
+          kind: NoteKind.note, tags: const [],
+          createdAt: DateTime.now(), updatedAt: DateTime.now(),
+        ),
+      ),
+    );
+    if (match.id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('no note: $title'), duration: const Duration(seconds: 2)),
+      );
+      return;
+    }
+    Navigator.of(context).push(FadeScalePageRoute(builder: (_) => EditorScreen(note: match)));
   }
 
   void _toggleTask(int lineIdx) {
@@ -513,8 +540,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           shrinkWrap: true,
           padding: EdgeInsets.zero,
           onTapLink: (text, href, title) {
-            if (href != null && href.startsWith('task:')) {
+            if (href == null) return;
+            if (href.startsWith('task:')) {
               _toggleTask(int.parse(href.substring(5)));
+              return;
+            }
+            if (href.startsWith('wiki:')) {
+              _openWikiLink(Uri.decodeComponent(href.substring(5)));
+              return;
             }
           },
           styleSheet: MarkdownStyleSheet(

@@ -1100,6 +1100,30 @@ DispatchResult _runCmd(AppState s, String cmd) {
     return _runSet(s, cmd == 'set' ? '' : cmd.substring(4).trim());
   }
 
+  // :sort — sort buffer lines
+  if (cmd == 'sort' || cmd == 'sort!' || cmd == 'sortu') {
+    _sortLines(s, reverse: cmd == 'sort!', unique: cmd == 'sortu');
+    return DispatchResult.none;
+  }
+
+  // :g/pat/d — delete matching lines; :v/pat/d — delete non-matching
+  final gMatch = RegExp(r'^(g|v)/(.*?)/d$').firstMatch(cmd);
+  if (gMatch != null) {
+    _globalDelete(s, gMatch.group(2) ?? '', invert: gMatch.group(1) == 'v');
+    return DispatchResult.none;
+  }
+
+  // :daily — open/create today's daily note
+  if (cmd == 'daily' || cmd == 'today') {
+    return _openDaily(s);
+  }
+
+  // :bl / :backlinks — show notes linking to current
+  if (cmd == 'bl' || cmd == 'backlinks') {
+    _showBacklinks(s);
+    return DispatchResult.none;
+  }
+
   final parts = cmd.split(RegExp(r'\s+'));
   final head = parts.first;
   final rest = parts.length > 1 ? parts.sublist(1).join(' ') : '';
@@ -1627,6 +1651,88 @@ void _clipPaste(AppState s) {
     s.toast = 'no clipboard: $e';
     s.toastErr = true;
   }
+}
+
+void _sortLines(AppState s, {bool reverse = false, bool unique = false}) {
+  if (s.focus != Focus.detail) { s.toast = ':sort needs editor'; s.toastErr = true; return; }
+  final b = s.activeBuf;
+  b.snapshot();
+  var ls = List<String>.of(b.lines);
+  ls.sort();
+  if (reverse) ls = ls.reversed.toList();
+  if (unique) {
+    final seen = <String>{};
+    ls = ls.where(seen.add).toList();
+  }
+  b.lines = ls;
+  b.clamp();
+  s.dirty = true;
+  s.toast = 'sorted ${ls.length} lines${unique ? " (unique)" : ""}';
+}
+
+void _globalDelete(AppState s, String pattern, {bool invert = false}) {
+  if (s.focus != Focus.detail) { s.toast = ':g needs editor'; s.toastErr = true; return; }
+  if (pattern.isEmpty) { s.toast = 'empty pattern'; s.toastErr = true; return; }
+  RegExp re;
+  try { re = RegExp(pattern); } catch (_) { s.toast = 'bad pattern'; s.toastErr = true; return; }
+  final b = s.activeBuf;
+  b.snapshot();
+  final kept = b.lines.where((l) => invert ? re.hasMatch(l) : !re.hasMatch(l)).toList();
+  final removed = b.lines.length - kept.length;
+  b.lines = kept.isEmpty ? [''] : kept;
+  b.clamp();
+  s.dirty = true;
+  s.toast = 'deleted $removed lines';
+}
+
+String _dailyTitle() {
+  final now = DateTime.now();
+  final m = now.month.toString().padLeft(2, '0');
+  final d = now.day.toString().padLeft(2, '0');
+  return 'daily ${now.year}-$m-$d';
+}
+
+DispatchResult _openDaily(AppState s) {
+  final title = _dailyTitle();
+  final existing = s.notes.where((n) => n.title == title).firstOrNull;
+  if (existing != null) {
+    s.openNoteForEdit(existing);
+    return DispatchResult.none;
+  }
+  final now = DateTime.now();
+  final firstUserId = s.notes.isNotEmpty ? s.notes.first.userId : '';
+  final n = Note(
+    id: now.microsecondsSinceEpoch.toString(),
+    userId: firstUserId,
+    title: title,
+    body: '# $title\n\n## notes\n\n- \n\n## tasks\n\n- [ ] \n',
+    tags: ['daily'],
+    pinned: false,
+    createdAt: now,
+    updatedAt: now,
+  );
+  s.notes.insert(0, n);
+  s.openNoteForEdit(n);
+  s.toast = 'daily note';
+  return DispatchResult.none;
+}
+
+/// Extract wiki-links [[title]] from body.
+List<String> extractWikiLinks(String body) =>
+    RegExp(r'\[\[([^\]]+)\]\]').allMatches(body).map((m) => m.group(1)!.trim()).toList();
+
+void _showBacklinks(AppState s) {
+  if (s.current == null) { s.toast = 'no note open'; s.toastErr = true; return; }
+  final title = s.current!.title;
+  final backlinks = s.notes.where((n) {
+    if (n.id == s.current!.id) return false;
+    return extractWikiLinks(n.body).any((l) => l.toLowerCase() == title.toLowerCase());
+  }).toList();
+  if (backlinks.isEmpty) {
+    s.toast = 'no backlinks';
+    return;
+  }
+  s.toast = '${backlinks.length} backlinks: ${backlinks.take(3).map((n) => n.title).join(", ")}${backlinks.length > 3 ? "…" : ""}';
 }
 
 class _Utf8Decoder extends Converter<List<int>, String> {

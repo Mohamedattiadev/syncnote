@@ -337,6 +337,14 @@ List<String> _helpText() => [
       '  :read <path>      insert file at cursor',
       '  :pipe <cmd>       filter buffer through cmd',
       '  :copy :paste      system clipboard',
+      '',
+      _b() + 'ORGANIZATION',
+      '  :daily            open/create daily note',
+      '  :sort :sort! :sortu  sort buffer lines',
+      '  :g/pat/d          delete matching lines',
+      '  :v/pat/d          keep only matching lines',
+      '  :bl :backlinks    show notes linking here',
+      '  [[title]]         wiki-link syntax in body',
     ];
 
 // -------- layout --------

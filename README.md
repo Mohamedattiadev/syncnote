@@ -106,12 +106,39 @@ Full-screen native TUI with real vim modal editing.
 
 ```
 Motion:   hjkl · w b e · 0 $ · gg G · H L · <tab>hjkl · Ctrl+d/u
+Counts:   5j  10k  3w  15G  5dd  3yy  4x  (any motion/operator)
 Modes:    i I a A o O · v V · Esc
-Edit:     y d c yy dd cc · x p · u Ctrl+r
+Edit:     y d c yy dd cc dw · x p · u Ctrl+r · . (repeat)
 Nav:      Enter open · Tab · q back
+Char:     f{c} F{c} t{c} T{c} · ; , (repeat)
+Marks:    m{a-z} set · '{a-z} jump
+Count:    g Ctrl-g  word/char/line count toast
 Leader:   <space>q quit  <space>w save  <space>e tree  <space>a AI
           <space>bd del  <space>bn new  <space>fg search  <space>r reload
-Command:  :q :w :wq :q! :new :del :reload :search :help
+          <space>x  open URL under cursor (mirror of gx)
+Command:  :q :w :wq :q!  |  :qa :qa! :wqa :xa  (quit-all)
+          :new :del :reload :search :help
+          :<N>            jump to line N
+          :e <query>      fuzzy open note by title
+          :s/pat/repl/[g] :%s/...     substitute
+          :set wrap|nowrap|number|nonumber|theme <name>
+          :pwd  :cd [path]
+          :!<cmd>  :sh <cmd>          shell escape
+Web:      gx  <space>x           open URL under cursor
+          :o :open <url>         open URL
+          :web <query>           DuckDuckGo search
+          :import <url>          fetch + create note
+          :export [path]         write note as markdown
+          :exporthtml [path]     write note as html
+          :read <path>           insert file at cursor
+          :pipe <cmd>            filter buffer through cmd
+          :copy :paste           system clipboard (wl/xclip/pb)
+Org:      :daily :today          open/create daily note
+          :sort :sort! :sortu    sort buffer lines
+          :g/pat/d               delete matching lines
+          :v/pat/d               keep only matching lines
+          :bl :backlinks         notes linking here
+          [[title]]              wiki-link (tap in Flutter preview)
 Search:   / (fzf-style overlay)
 Pin:      P
 Help:     ? or :help
