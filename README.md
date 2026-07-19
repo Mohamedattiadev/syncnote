@@ -140,6 +140,12 @@ Org:      :daily :today          open/create daily note
           :bl :backlinks         notes linking here
           [[title]]              wiki-link (tap in Flutter preview)
 Regs:     "{a-z}y  "{a-z}p      named registers (yank/paste)
+AI:       :model                 cycle common models (persists)
+          :model <id>            set specific model
+          :models                list common models
+          Ctrl+P (in chat)       cycle model
+          Ctrl+W (in chat)       toggle notes/web mode
+          Ctrl+L (in chat)       clear chat
 Sec:      :encrypt <pass>        XOR+base64 obscure note body
           :decrypt <pass>        reverse encryption
           :undolist              show undo/redo stack sizes

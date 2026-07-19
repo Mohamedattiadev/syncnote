@@ -770,6 +770,22 @@ DispatchResult _chatMode(AppState s, Key k) {
     s.toastErr = false;
     return DispatchResult.none;
   }
+  if (k.name == 'ctrl+p') {
+    // cycle AI model
+    if (s.aiCfg == null) {
+      s.toast = 'no AI key — see :help';
+      s.toastErr = true;
+      return DispatchResult.none;
+    }
+    final cur = s.aiCfg!.model;
+    final idx = commonModels.indexOf(cur);
+    final next = commonModels[(idx + 1) % commonModels.length];
+    s.aiCfg = s.aiCfg!.copyWith(model: next);
+    saveAi(s.aiCfg!);
+    s.toast = 'model → $next';
+    s.toastErr = false;
+    return DispatchResult.none;
+  }
   if (k.name == 'backspace') {
     if (s.chatCursor > 0) {
       s.chatInput = s.chatInput.substring(0, s.chatCursor - 1) +
@@ -1195,6 +1211,34 @@ DispatchResult _runCmd(AppState s, String cmd) {
     } else {
       final list = b.marks.entries.map((e) => "'${e.key}=L${e.value + 1}").join('  ');
       s.toast = list;
+    }
+    return DispatchResult.none;
+  }
+
+  // :model <name> — set AI model directly; :model with no arg cycles
+  // :models — list common models
+  if (cmd == 'models') {
+    s.toast = commonModels.take(4).join('  ');
+    return DispatchResult.none;
+  }
+  if (cmd == 'model' || cmd.startsWith('model ')) {
+    if (s.aiCfg == null) {
+      s.toast = 'no AI key — see :help';
+      s.toastErr = true;
+      return DispatchResult.none;
+    }
+    final arg = cmd.length > 5 ? cmd.substring(5).trim() : '';
+    if (arg.isEmpty) {
+      final cur = s.aiCfg!.model;
+      final idx = commonModels.indexOf(cur);
+      final next = commonModels[(idx + 1) % commonModels.length];
+      s.aiCfg = s.aiCfg!.copyWith(model: next);
+      saveAi(s.aiCfg!);
+      s.toast = 'model → $next';
+    } else {
+      s.aiCfg = s.aiCfg!.copyWith(model: arg);
+      saveAi(s.aiCfg!);
+      s.toast = 'model → $arg';
     }
     return DispatchResult.none;
   }

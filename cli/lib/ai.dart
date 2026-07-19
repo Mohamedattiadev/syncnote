@@ -18,7 +18,24 @@ class AiCfg {
   final int maxTokens;
   const AiCfg({required this.apiKey, required this.model, this.maxTokens = 2048});
   bool get valid => apiKey.trim().startsWith('sk-or-');
+  AiCfg copyWith({String? apiKey, String? model, int? maxTokens}) => AiCfg(
+        apiKey: apiKey ?? this.apiKey,
+        model: model ?? this.model,
+        maxTokens: maxTokens ?? this.maxTokens,
+      );
 }
+
+/// Popular OpenRouter models — cycled via Ctrl+P in chat / `:model` cycle.
+const List<String> commonModels = [
+  'openai/gpt-4o-mini',
+  'openai/gpt-4o',
+  'anthropic/claude-3.5-sonnet',
+  'anthropic/claude-3.5-haiku',
+  'google/gemini-2.0-flash-exp:free',
+  'meta-llama/llama-3.3-70b-instruct',
+  'deepseek/deepseek-chat',
+  'qwen/qwen-2.5-72b-instruct',
+];
 
 /// Where the config was found — used by the status pane so user can debug
 /// missing keys (env vs file vs missing).

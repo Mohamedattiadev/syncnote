@@ -122,15 +122,26 @@ Future<void> main(List<String> args) async {
       state.syncBufsToNote();
       try {
         state.current!.updatedAt = DateTime.now().toUtc();
-        await client
-            .from('notes')
-            .update(state.current!.toMap())
-            .eq('id', state.current!.id);
+        try {
+          await client
+              .from('notes')
+              .update(state.current!.toMap())
+              .eq('id', state.current!.id);
+        } on Object catch (e) {
+          final msg = e.toString();
+          if (msg.contains('PGRST204') || msg.contains("Could not find the '")) {
+            final m = Map<String, dynamic>.of(state.current!.toMap());
+            m.remove('pinned');
+            await client.from('notes').update(m).eq('id', state.current!.id);
+          } else {
+            rethrow;
+          }
+        }
         state.dirty = false;
         state.toast = 'saved';
         state.toastErr = false;
       } catch (e) {
-        state.toast = 'save err: $e';
+        state.toast = 'save err: ${_shortErr(e.toString())}';
         state.toastErr = true;
       }
     }
@@ -298,7 +309,20 @@ Future<Note> _create(SupabaseClient client) async {
     createdAt: now,
     updatedAt: now,
   );
-  await client.from('notes').insert(n.toMap());
+  try {
+    await client.from('notes').insert(n.toMap());
+  } on Object catch (e) {
+    // Fallback: remote schema may lack newer columns (e.g. `pinned`).
+    // Retry with only the base fields so the CLI still works on older DBs.
+    final msg = e.toString();
+    if (msg.contains('PGRST204') || msg.contains("Could not find the '")) {
+      final m = Map<String, dynamic>.of(n.toMap());
+      m.remove('pinned');
+      await client.from('notes').insert(m);
+    } else {
+      rethrow;
+    }
+  }
   return n;
 }
 

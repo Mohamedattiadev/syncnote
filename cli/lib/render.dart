@@ -177,6 +177,7 @@ const List<String> allCmds = [
   'encrypt', 'decrypt',
   'undolist', 'undol',
   'reg', 'registers', 'marks',
+  'model', 'models',
   '!',
 ];
 
@@ -691,7 +692,10 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
   final isCursor = rowIdx == cursorRow;
 
   final b = StringBuffer();
-  if (isCursor) {
+  // Only draw left stripe in insert mode (where block cursor is hidden)
+  // to avoid two overlapping cursor indicators in normal/visual mode.
+  final wantStripe = isCursor && s.mode == Mode.insert;
+  if (wantStripe) {
     b.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
   } else {
     b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
@@ -730,7 +734,7 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
 
 List<String> _renderChat(AppState s, int w, int bodyH) {
   final rows = <String>[];
-  final maxH = bodyH - 1;
+  final maxH = bodyH - 2;
 
   final modeName = s.chatUseNotes ? 'notes' : 'web';
   final modelName = s.aiCfg?.model ?? '(no key)';
@@ -787,6 +791,10 @@ List<String> _renderChat(AppState s, int w, int bodyH) {
     while (rows.length < maxH) rows.add(_padRight('', w));
   }
 
+  final hint = _c(Colors.muted, Colors.bgBase) +
+      '  Ctrl+W mode · Ctrl+P model · Ctrl+L clear · Esc exit' +
+      _r();
+  rows.add(_padRight(hint, w));
   final prompt = _c(Colors.warn, Colors.bgBase) + '  ›' + _r() + ' ' + s.chatInput;
   rows.add(_padRight(prompt, w));
   return rows;
