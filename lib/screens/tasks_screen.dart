@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/theme.dart';
 import '../models/note.dart';
 import '../providers.dart';
+import '../widgets/fade_scale_route.dart';
 import 'editor_screen.dart';
 
 /// Aggregates every `- [ ]` and `- [x]` from every note into one list.
@@ -89,7 +90,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen> {
 
   void _open(Note n) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EditorScreen(note: n)),
+      FadeScalePageRoute(builder: (_) => EditorScreen(note: n)),
     );
   }
 }
@@ -184,21 +185,40 @@ class _Empty extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              width: 200,
+              height: 200,
               decoration: BoxDecoration(
-                color: AppTheme.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.overlay),
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.success.withValues(alpha: 0.18),
+                    AppTheme.primary.withValues(alpha: 0.10),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.overlay.withValues(alpha: 0.4)),
               ),
-              child: const Icon(Icons.check_circle_outline,
-                  size: 48, color: AppTheme.muted),
+              child: Stack(alignment: Alignment.center, children: [
+                Positioned(
+                  top: 40, left: 40,
+                  child: Icon(Icons.check_circle_outline,
+                      size: 80, color: AppTheme.success.withValues(alpha: 0.85)),
+                ),
+                Positioned(
+                  bottom: 32, right: 32,
+                  child: Icon(Icons.task_alt,
+                      size: 40, color: AppTheme.primary.withValues(alpha: 0.7)),
+                ),
+              ]),
             ),
-            const SizedBox(height: 16),
-            const Text('nothing to do',
+            const SizedBox(height: 24),
+            const Text('All caught up',
                 style: TextStyle(
                     color: AppTheme.text,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600)),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3)),
             const SizedBox(height: 8),
             const Text(
               'add `- [ ] task` to any note\n'

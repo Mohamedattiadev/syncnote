@@ -8,6 +8,7 @@ import '../providers.dart';
 import '../services/ai.dart';
 import '../services/app_lock.dart';
 import '../services/backup.dart';
+import '../widgets/fade_scale_route.dart';
 import 'stats_screen.dart';
 import 'theme_picker.dart';
 
@@ -180,7 +181,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
             title: 'Stats',
             subtitle: 'Word count · tags · activity heatmap',
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const StatsScreen()),
+              FadeScalePageRoute(builder: (_) => const StatsScreen()),
             ),
           ),
           const SizedBox(height: 8),

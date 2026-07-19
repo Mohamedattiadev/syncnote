@@ -1194,31 +1194,63 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: AppTheme.surface,
-              shape: BoxShape.circle,
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primary.withValues(alpha: 0.18),
+                  AppTheme.accent.withValues(alpha: 0.12),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.overlay.withValues(alpha: 0.4)),
             ),
-            child: Icon(
-              hasQuery ? Icons.search_off : Icons.notes_outlined,
-              size: 48,
-              color: AppTheme.muted,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  top: 40,
+                  left: 40,
+                  child: Icon(
+                    hasQuery ? Icons.search_off : Icons.notes_outlined,
+                    size: 80,
+                    color: AppTheme.text.withValues(alpha: 0.6),
+                  ),
+                ),
+                Positioned(
+                  bottom: 32,
+                  right: 32,
+                  child: Icon(
+                    hasQuery ? Icons.filter_alt_outlined : Icons.auto_awesome,
+                    size: 40,
+                    color: AppTheme.accent.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
-            hasQuery ? 'no matches' : 'no notes yet',
+            hasQuery ? 'No matches found' : 'Start writing',
             style: const TextStyle(
                 color: AppTheme.text,
-                fontSize: 16,
-                fontWeight: FontWeight.w600),
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3),
           ),
-          const SizedBox(height: 4),
-          Text(
-            hasQuery
-                ? 'try different keywords'
-                : 'tap + to create your first note',
-            style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 280,
+            child: Text(
+              hasQuery
+                  ? 'Try different keywords or clear the search.'
+                  : 'Your notes appear here. Create your first one to get started.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.muted, fontSize: 14, height: 1.5),
+            ),
           ),
         ],
       ),

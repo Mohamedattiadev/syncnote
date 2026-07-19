@@ -327,7 +327,7 @@ List<String> _helpText() => [
       '  :pwd :!<cmd>      shell utilities',
       '',
       _b() + 'WEB / EXTERNAL',
-      '  gx                open URL under cursor',
+      '  gx  <space>x      open URL under cursor',
       '  :o :open <url>    open URL in browser',
       '  :import <url>     fetch + create note',
       '  :export [path]    write note as markdown',

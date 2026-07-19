@@ -630,6 +630,10 @@ DispatchResult _leader(AppState s, Key k) {
       s.treeOpen = !s.treeOpen;
       if (!s.treeOpen && s.focus == Focus.tree) s.focus = Focus.list;
       break;
+    case 'x':
+      // <space>x — open URL under cursor (mirror of gx)
+      _openUrlUnderCursor(s);
+      break;
     case 't':
       // Focus tree explicitly (opens if closed)
       s.focus = Focus.tree;

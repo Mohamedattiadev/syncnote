@@ -1,7 +1,10 @@
 // Command palette — Ctrl+K opens a fuzzy jump-to-anything overlay.
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/theme.dart';
@@ -28,10 +31,25 @@ class PaletteCommand {
 
 /// Show as full-screen modal. Filters notes + built-in actions.
 Future<void> showCommandPalette(BuildContext context, WidgetRef ref) async {
-  await showDialog(
+  await showGeneralDialog(
     context: context,
-    barrierColor: AppTheme.base.withValues(alpha: 0.85),
-    builder: (_) => const _PaletteDialog(),
+    barrierDismissible: true,
+    barrierLabel: 'palette',
+    barrierColor: AppTheme.base.withValues(alpha: 0.55),
+    transitionDuration: const Duration(milliseconds: 180),
+    pageBuilder: (_, a, b) => const _PaletteDialog(),
+    transitionBuilder: (_, anim, b, child) => BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8 * anim.value, sigmaY: 8 * anim.value),
+      child: FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1.0)
+              .chain(CurveTween(curve: Curves.easeOutCubic))
+              .animate(anim),
+          child: child,
+        ),
+      ),
+    ),
   );
 }
 
@@ -154,74 +172,120 @@ class _PaletteDialogState extends ConsumerState<_PaletteDialog> {
     final items = _items(notes);
     _selected = _selected.clamp(0, items.isEmpty ? 0 : items.length - 1);
 
-    return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 80),
-      child: Focus(
-        onKeyEvent: (n, e) => _onKey(n, e, items),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
-              child: Row(
+    final screen = MediaQuery.of(context).size;
+    final maxW = 640.0;
+    final maxH = screen.height * 0.6;
+    // Build categorized item list with headers
+    final actionItems = items.where((i) => i.kind == _ItemKind.command).toList();
+    final noteItemsFiltered = items.where((i) => i.kind == _ItemKind.note).toList();
+
+    return Align(
+      alignment: const Alignment(0, -0.2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.overlay.withValues(alpha: 0.6), width: 1),
+            ),
+            child: Focus(
+              onKeyEvent: (n, e) => _onKey(n, e, items),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.terminal, color: AppTheme.accent, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _query,
-                      focusNode: _focus,
-                      onChanged: (_) => setState(() => _selected = 0),
-                      style: const TextStyle(color: AppTheme.text, fontSize: 15),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        hintText: 'jump to note or run command…',
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, color: AppTheme.muted, size: 18),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _query,
+                            focusNode: _focus,
+                            onChanged: (_) => setState(() => _selected = 0),
+                            style: const TextStyle(color: AppTheme.text, fontSize: 15),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              filled: false,
+                              hintText: 'Jump to note or run command…',
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.overlay,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('esc',
+                              style: TextStyle(color: AppTheme.muted, fontSize: 11, letterSpacing: 0.8)),
+                        ),
+                      ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.overlay,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text('esc',
-                        style: TextStyle(
-                            color: AppTheme.muted, fontSize: 10)),
+                  Container(height: 1, color: AppTheme.overlay.withValues(alpha: 0.5)),
+                  Flexible(
+                    child: items.isEmpty
+                        ? Container(
+                            padding: const EdgeInsets.all(32),
+                            child: const Text('no matches',
+                                style: TextStyle(color: AppTheme.muted)),
+                          )
+                        : ListView(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            children: [
+                              if (actionItems.isNotEmpty) ...[
+                                const _SectionHeader('ACTIONS'),
+                                ...actionItems.asMap().entries.map((e) => _Row(
+                                      item: e.value,
+                                      selected: items.indexOf(e.value) == _selected,
+                                      onTap: () => _execute(e.value),
+                                    )),
+                              ],
+                              if (noteItemsFiltered.isNotEmpty) ...[
+                                const _SectionHeader('NOTES'),
+                                ...noteItemsFiltered.map((it) => _Row(
+                                      item: it,
+                                      selected: items.indexOf(it) == _selected,
+                                      onTap: () => _execute(it),
+                                    )),
+                              ],
+                            ],
+                          ),
                   ),
                 ],
               ),
             ),
-            const Divider(color: AppTheme.overlay, height: 1),
-            Flexible(
-              child: items.isEmpty
-                  ? Container(
-                      padding: const EdgeInsets.all(24),
-                      child: const Text('no matches',
-                          style: TextStyle(color: AppTheme.muted)),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      itemBuilder: (context, i) => _Row(
-                        item: items[i],
-                        selected: i == _selected,
-                        onTap: () => _execute(items[i]),
-                      ),
-                    ),
-            ),
-          ],
+          ),
         ),
       ),
-    );
+    ).animate().fadeIn(duration: 160.ms).scaleXY(begin: 0.97, end: 1.0, duration: 200.ms, curve: Curves.easeOutCubic);
   }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String label;
+  const _SectionHeader(this.label);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+        child: Text(label,
+            style: const TextStyle(
+                color: AppTheme.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2)),
+      );
 }
 
 enum _ItemKind { command, note }
@@ -265,28 +329,24 @@ class _Row extends StatelessWidget {
         : item.note!.body.replaceAll('\n', ' ');
 
     return Material(
-      color: selected ? AppTheme.primary.withValues(alpha: 0.15) : Colors.transparent,
+      color: selected ? AppTheme.primary.withValues(alpha: 0.10) : Colors.transparent,
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: selected ? AppTheme.primary : Colors.transparent,
-                width: 3,
-              ),
-            ),
-          ),
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
               Icon(icon, size: 18, color: selected ? AppTheme.primary : AppTheme.muted),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                             color: AppTheme.text,
                             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
@@ -294,17 +354,19 @@ class _Row extends StatelessWidget {
                     if (subtitle != null && subtitle.isNotEmpty)
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                            color: AppTheme.muted, fontSize: 11),
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
               ),
-              if (item.kind == _ItemKind.command)
-                Text('⌘',
-                    style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+              if (selected)
+                Text('↵ open',
+                    style: TextStyle(
+                        color: AppTheme.primary.withValues(alpha: 0.8),
+                        fontSize: 11,
+                        letterSpacing: 0.5)),
             ],
           ),
         ),
