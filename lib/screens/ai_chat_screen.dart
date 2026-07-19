@@ -447,23 +447,29 @@ class _FloatingHeader extends StatelessWidget {
           child: const Icon(Icons.arrow_back, size: 18, color: AppTheme.text),
         ),
         const Spacer(),
-        _HeaderChip(
-          onTap: onChangeModel,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.smart_toy_outlined,
-                  size: 16, color: AppTheme.accent),
-              const SizedBox(width: 8),
-              Text(modelLabel,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.text)),
-              const SizedBox(width: 4),
-              const Icon(Icons.arrow_drop_down,
-                  size: 18, color: AppTheme.muted),
-            ],
+        Flexible(
+          child: _HeaderChip(
+            onTap: onChangeModel,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.smart_toy_outlined,
+                    size: 16, color: AppTheme.accent),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(modelLabel,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.text)),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down,
+                    size: 18, color: AppTheme.muted),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 8),

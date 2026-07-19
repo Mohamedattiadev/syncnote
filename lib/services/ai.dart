@@ -16,13 +16,14 @@ class OrModel {
 
 /// Popular OpenRouter models — curated for the picker.
 const kModels = <OrModel>[
-  OrModel('anthropic/claude-3.5-haiku', 'Claude 3.5 Haiku', 'Anthropic', note: 'cheap + fast'),
-  OrModel('anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet', 'Anthropic', note: 'balanced'),
-  OrModel('openai/gpt-4o-mini', 'GPT-4o mini', 'OpenAI', note: 'cheap'),
+  OrModel('openai/gpt-4o-mini', 'GPT-4o mini', 'OpenAI', note: 'cheap + fast'),
   OrModel('openai/gpt-4o', 'GPT-4o', 'OpenAI'),
-  OrModel('google/gemini-flash-1.5', 'Gemini Flash 1.5', 'Google', note: 'very cheap'),
+  OrModel('anthropic/claude-3.5-sonnet:beta', 'Claude 3.5 Sonnet', 'Anthropic', note: 'balanced'),
+  OrModel('anthropic/claude-3-haiku:beta', 'Claude 3 Haiku', 'Anthropic', note: 'cheap'),
+  OrModel('google/gemini-2.0-flash-exp:free', 'Gemini 2.0 Flash', 'Google', note: 'free'),
   OrModel('meta-llama/llama-3.3-70b-instruct', 'Llama 3.3 70B', 'Meta', note: 'open'),
   OrModel('deepseek/deepseek-chat', 'DeepSeek Chat', 'DeepSeek', note: 'cheapest'),
+  OrModel('qwen/qwen-2.5-72b-instruct', 'Qwen 2.5 72B', 'Qwen', note: 'open'),
 ];
 
 class ChatMessage {

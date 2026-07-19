@@ -280,15 +280,20 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ? null
             : AppBar(
                 title: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(widget.note == null ? 'new note' : 'edit'),
                     const SizedBox(width: 8),
-                    Text(
-                      _wordCount(_body.text),
-                      style: const TextStyle(
-                          color: AppTheme.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500),
+                    Flexible(
+                      child: Text(
+                        _wordCount(_body.text),
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: const TextStyle(
+                            color: AppTheme.muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ],
                 ),
