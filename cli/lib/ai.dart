@@ -43,7 +43,7 @@ AiCfg? loadAi() {
     }
   }
   final envModel =
-      Platform.environment['OPENROUTER_MODEL'] ?? 'anthropic/claude-3.5-sonnet';
+      Platform.environment['OPENROUTER_MODEL'] ?? 'openai/gpt-4o-mini';
   if (envKey.isNotEmpty) {
     lastAiSource = AiSource.env;
     return AiCfg(apiKey: envKey, model: envModel);
@@ -59,7 +59,7 @@ AiCfg? loadAi() {
     lastAiSource = AiSource.file;
     return AiCfg(
       apiKey: m['apiKey'] as String? ?? '',
-      model: m['model'] as String? ?? 'anthropic/claude-3.5-sonnet',
+      model: m['model'] as String? ?? 'openai/gpt-4o-mini',
       maxTokens: (m['maxTokens'] as int?) ?? 2048,
     );
   } catch (_) {

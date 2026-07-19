@@ -57,18 +57,18 @@ Future<void> main(List<String> args) async {
 
   enterAlt();
 
-  // Guarantee terminal restoration on ANY exit path.
+  bool _cleaned = false;
   void cleanup() {
+    if (_cleaned) return;
+    _cleaned = true;
+    // Restore stdin FIRST so we don't accidentally paint raw keys
     try {
-      terminalReset();
-      stdout.write('\n');
-      try { stdout.flush(); } catch (_) {}
-      // Restore stdin so shell reads keys normally
-      try {
-        stdin.echoMode = true;
-        stdin.lineMode = true;
-      } catch (_) {}
+      stdin.echoMode = true;
+      stdin.lineMode = true;
     } catch (_) {}
+    terminalReset();
+    try { stdout.write('\n'); } catch (_) {}
+    try { stdout.flush(); } catch (_) {}
   }
   final signals = <StreamSubscription>[];
   signals.add(ProcessSignal.sigint.watch().listen((_) {

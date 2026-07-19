@@ -798,10 +798,10 @@ String _statusline(AppState s, int w) {
 }
 
 String _hintText(AppState s) => switch (s.focus) {
-      Focus.list => 'hjkl · n new · dd del · yy yank · / search · ? help · q quit',
-      Focus.detail => 'i insert · v visual · y yank · Tab field · q back',
+      Focus.list => '<space>a ai · <space>e tree · n new · dd del · yy yank · / find · ? help · q quit',
+      Focus.detail => 'i insert · v visual · y yank · Tab field · <space>e tree · q back',
       Focus.chat => 'Ctrl+W mode · Ctrl+L clear · Esc back',
-      Focus.tree => 'j/k · Enter apply · h/q back',
+      Focus.tree => 'j/k · Enter apply · l/q back',
     };
 
 // -------- helpers --------

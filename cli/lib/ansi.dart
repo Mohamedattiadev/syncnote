@@ -17,15 +17,19 @@ void resetSgr() => aw('${csi}0m');
 
 /// Full terminal reset — used on exit to guarantee shell prompt returns cleanly.
 void terminalReset() {
-  aw('${csi}0m');    // reset SGR
-  aw('${csi}?25h');  // show cursor
-  aw('$esc[0 q');    // reset cursor shape
-  aw('${csi}?1049l'); // exit alt screen
-  aw('${csi}?1000l'); // disable mouse
-  aw('${csi}?2004l'); // disable bracketed paste
   try {
-    stdout.flush();
+    aw('${csi}0m');          // reset SGR
+    aw('${csi}?25h');        // show cursor
+    aw('$esc[0 q');          // reset cursor shape
+    aw('${csi}?1000l');      // disable mouse
+    aw('${csi}?1002l');      // disable button mouse
+    aw('${csi}?1003l');      // disable any mouse
+    aw('${csi}?1006l');      // disable SGR mouse
+    aw('${csi}?2004l');      // disable bracketed paste
+    aw('${csi}?1049l');      // exit alt screen (last — restore main buffer)
+    aw('$esc[!p');           // soft reset
   } catch (_) {}
+  try { stdout.flush(); } catch (_) {}
 }
 
 /// DECSCUSR — set cursor shape. 1=blink block, 2=steady block, 3=blink underline,
