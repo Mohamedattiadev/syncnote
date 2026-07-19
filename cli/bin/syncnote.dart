@@ -17,6 +17,25 @@ import 'package:syncnote_cli/render.dart';
 import 'package:syncnote_cli/state.dart';
 
 Future<void> main(List<String> args) async {
+  // Guard: TUI needs a real TTY on both stdin and stdout.
+  if (!stdin.hasTerminal || !stdout.hasTerminal) {
+    stderr.writeln('syncnote: no interactive terminal detected.');
+    stderr.writeln('This is a full-screen TUI — run it in an interactive shell.');
+    stderr.writeln('Piped input / redirected stdout is not supported.');
+    exit(2);
+  }
+  // Extra safety: try setting raw mode; if it fails, exit cleanly.
+  try {
+    stdin.echoMode = false;
+    stdin.lineMode = false;
+    // Restore so nothing changes for main flow
+    stdin.echoMode = true;
+    stdin.lineMode = true;
+  } catch (_) {
+    stderr.writeln('syncnote: terminal does not support raw input mode.');
+    exit(2);
+  }
+
   final cfg = Env.load();
   final store = TokenStore.userScope();
   final client = SupabaseClient(cfg.url, cfg.key);
@@ -57,10 +76,10 @@ Future<void> main(List<String> args) async {
 
   enterAlt();
 
-  bool _cleaned = false;
+  var cleaned = false;
   void cleanup() {
-    if (_cleaned) return;
-    _cleaned = true;
+    if (cleaned) return;
+    cleaned = true;
     // Restore stdin FIRST so we don't accidentally paint raw keys
     try {
       stdin.echoMode = true;

@@ -52,6 +52,7 @@ dependencies:
   archive: ^4.0.9
   file_saver: ^0.4.0
   local_auth: ^3.0.2
+  flutter_animate: ^4.5.0
 
 dev_dependencies:
   flutter_test:
