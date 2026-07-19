@@ -7,6 +7,7 @@ import '../config/theme.dart';
 import '../models/note.dart';
 import '../providers.dart';
 import '../services/ai.dart';
+import '../services/ai_actions.dart';
 import '../services/rag.dart';
 import 'ai_settings_screen.dart';
 import 'editor_screen.dart';
@@ -97,8 +98,19 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
         setState(() => _streaming = buf.toString());
         _scrollDown();
       }
+      // Parse + execute AI actions embedded in reply
+      final runner = AiActionRunner(ref.read(notesRepoProvider));
+      final actions = runner.parse(buf.toString());
+      String finalReply = buf.toString();
+      if (actions.isNotEmpty) {
+        final summary = await runner.execute(actions);
+        finalReply = runner.stripBlocks(finalReply);
+        if (summary.isNotEmpty) {
+          finalReply = '$finalReply\n\n_${summary}_';
+        }
+      }
       setState(() {
-        _messages.add(ChatMessage('assistant', buf.toString()));
+        _messages.add(ChatMessage('assistant', finalReply.trim()));
         _streaming = null;
       });
     } catch (e) {

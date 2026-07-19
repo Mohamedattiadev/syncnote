@@ -179,12 +179,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_filter != null) it = it.where((n) => n.kind == _filter);
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
-      it = it.where((n) =>
-          n.title.toLowerCase().contains(q) ||
-          n.body.toLowerCase().contains(q) ||
-          n.tags.any((t) => t.toLowerCase().contains(q)));
+      // Fuzzy scoring — substring > subsequence, sort by score desc
+      final scored = it.map((n) {
+        final hay = '${n.title.toLowerCase()} ${n.body.toLowerCase()} ${n.tags.join(' ').toLowerCase()}';
+        final score = _fuzzyScore(q, hay);
+        return (score, n);
+      }).where((e) => e.$1 > 0).toList();
+      scored.sort((a, b) => b.$1.compareTo(a.$1));
+      return scored.map((e) => e.$2).toList();
     }
     return it.toList();
+  }
+
+  /// Same algorithm as CLI AppState.fuzzyScore
+  static int _fuzzyScore(String query, String haystack) {
+    if (query.isEmpty) return 1;
+    final idx = haystack.indexOf(query);
+    if (idx >= 0) return 1000 - idx;
+    int hi = 0, hits = 0, score = 0;
+    for (final ch in query.runes) {
+      final rest = haystack.substring(hi);
+      final found = rest.indexOf(String.fromCharCode(ch));
+      if (found < 0) return 0;
+      hi += found + 1;
+      hits++;
+      if (found == 0) score += 5;
+      score += 1;
+    }
+    return hits > 0 ? score : 0;
   }
 }
 

@@ -129,6 +129,36 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     setState(() => _dirty = true);
   }
 
+  void _wrap(String before, String after) {
+    final sel = _body.selection;
+    final text = _body.text;
+    if (!sel.isValid) return;
+    final start = sel.start.clamp(0, text.length);
+    final end = sel.end.clamp(0, text.length);
+    final selected = text.substring(start, end);
+    final replacement = '$before$selected$after';
+    _body.value = TextEditingValue(
+      text: text.replaceRange(start, end, replacement),
+      selection: TextSelection.collapsed(offset: start + before.length + selected.length),
+    );
+    setState(() => _dirty = true);
+  }
+
+  void _prefixLine(String prefix) {
+    final text = _body.text;
+    final cur = _body.selection.baseOffset.clamp(0, text.length);
+    // Find start of current line
+    var lineStart = cur;
+    while (lineStart > 0 && text[lineStart - 1] != '\n') {
+      lineStart--;
+    }
+    _body.value = TextEditingValue(
+      text: text.replaceRange(lineStart, lineStart, prefix),
+      selection: TextSelection.collapsed(offset: cur + prefix.length),
+    );
+    setState(() => _dirty = true);
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -192,23 +222,14 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           title: Text(widget.note == null ? 'new note' : 'edit'),
           actions: [
             _SaveStatus(dirty: _dirty, lastSaved: _lastSaved, saving: _saving),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.check_box_outlined),
-              tooltip: 'insert task',
-              onPressed: () {
-                final cur = _body.selection.baseOffset.clamp(0, _body.text.length);
-                final t = _body.text;
-                final prefix = t.substring(0, cur);
-                final needsNewline = prefix.isNotEmpty && !prefix.endsWith('\n');
-                final insertion = '${needsNewline ? '\n' : ''}- [ ] ';
-                _body.text = prefix + insertion + t.substring(cur);
-                _body.selection = TextSelection.collapsed(
-                  offset: cur + insertion.length,
-                );
-                setState(() => _dirty = true);
-              },
-            ),
+            const SizedBox(width: 4),
+            _MdButton(icon: Icons.format_bold, tooltip: 'bold', onTap: () => _wrap('**', '**')),
+            _MdButton(icon: Icons.format_italic, tooltip: 'italic', onTap: () => _wrap('_', '_')),
+            _MdButton(icon: Icons.code, tooltip: 'code', onTap: () => _wrap('`', '`')),
+            _MdButton(icon: Icons.title, tooltip: 'heading', onTap: () => _prefixLine('## ')),
+            _MdButton(icon: Icons.format_list_bulleted, tooltip: 'list', onTap: () => _prefixLine('- ')),
+            _MdButton(icon: Icons.check_box_outlined, tooltip: 'task', onTap: () => _prefixLine('- [ ] ')),
+            _MdButton(icon: Icons.link, tooltip: 'link', onTap: () => _wrap('[', '](url)')),
             IconButton(
               icon: Icon(_preview ? Icons.edit_note : Icons.visibility),
               tooltip: _preview ? 'edit' : 'preview',
@@ -379,5 +400,21 @@ class _SaveStatus extends StatelessWidget {
     if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     return '${diff.inHours}h ago';
+  }
+}
+
+class _MdButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _MdButton({required this.icon, required this.tooltip, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      tooltip: tooltip,
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+    );
   }
 }

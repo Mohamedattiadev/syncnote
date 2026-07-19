@@ -17,11 +17,19 @@ class RagBuilder {
 
     final ranked = _rank(query, notes);
     final buf = StringBuffer();
-    buf.writeln(
-        'You are the user\'s personal notes assistant. Read the notes below and answer questions about them. '
-        'If the answer is not in the notes, say "I don\'t see that in your notes." '
-        'If the user asks to CREATE a note, tell them: "Say `/note Title` or `create note called X, content Y` and I will save it." '
-        'Cite notes by their title in [brackets] when useful. Be concise.\n');
+    buf.writeln('You are the user\'s personal notes assistant.');
+    buf.writeln('Rules:');
+    buf.writeln('- Answer using ONLY the notes below.');
+    buf.writeln('- If the answer is not present, say "I don\'t see that in your notes."');
+    buf.writeln('- Cite notes by title in [brackets].');
+    buf.writeln('- Be concise.');
+    buf.writeln();
+    buf.writeln('Tool calls: if the user asks to CREATE / UPDATE / DELETE notes, emit a JSON block:');
+    buf.writeln('```syncnote-action');
+    buf.writeln('{"action":"create","title":"Groceries","body":"milk\\neggs","tags":["shopping"]}');
+    buf.writeln('```');
+    buf.writeln('Valid actions: create, delete (needs "id"), update (needs "id"). The app executes these automatically.');
+    buf.writeln();
     buf.writeln('---NOTES BEGIN---');
     int used = 0;
     for (final n in ranked) {
