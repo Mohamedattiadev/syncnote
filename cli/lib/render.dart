@@ -113,6 +113,10 @@ Frame renderFrame(AppState s, int w, int h) {
   final gutterW = 5;
   if (s.fieldIdx == 0) return (2, 10 + s.titleBuf.cursor.col);
   if (s.fieldIdx == 1) return (3, 10 + s.tagsBuf.cursor.col);
+  // Body: in normal/visual, block cursor is drawn by _bodyLine — hiding
+  // the terminal caret avoids a second visible cursor. In insert mode
+  // we need the terminal caret so the bar shape (DECSCUSR 5) shows.
+  if (s.mode != Mode.insert) return null;
   final bodyTop = 5;
   final avail = 20;
   final scroll = s.bodyBuf.cursor.row < avail ? 0 : s.bodyBuf.cursor.row - avail + 3;
@@ -429,13 +433,15 @@ class _Layout {
 
 _Layout _computeLayout(AppState s, int w) {
   int tree = 0;
-  if (s.treeOpen && w >= 60) {
-    if (w < 90) {
-      tree = 16;
+  // Require enough width for tree to be legible; 20 cols is the floor
+  // where headers like "SPACES" + tag names don't wrap into garbage.
+  if (s.treeOpen && w >= 80) {
+    if (w < 110) {
+      tree = 20;
     } else if (w < 140) {
-      tree = 22;
+      tree = 24;
     } else {
-      tree = (w / 5).floor().clamp(22, 32);
+      tree = (w / 5).floor().clamp(24, 32);
     }
   }
   int preview = 0;
@@ -525,11 +531,18 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
     // Folder / tag icon
     final glyph = it.key == '__all__' ? '◉' : (it.key == '__untagged__' ? '○' : '▸');
     b.write(' ');
+    // Truncate label to leave room for glyph (2) + count (up to 4) + margins.
+    final countStr0 = it.count.toString();
+    final labelBudget = w - 2 - 2 - countStr0.length - 3;
+    var label = it.label;
+    if (labelBudget > 1 && label.length > labelBudget) {
+      label = '${label.substring(0, labelBudget - 1)}…';
+    }
     if (active) {
       b.write(_c(Colors.accent, Colors.bgBase) + glyph + ' ' + _r());
-      b.write(_c(Colors.primary, Colors.bgBase) + _b() + it.label + _r());
+      b.write(_c(Colors.primary, Colors.bgBase) + _b() + label + _r());
     } else {
-      b.write(_c(Colors.muted, Colors.bgBase) + glyph + ' ' + it.label + _r());
+      b.write(_c(Colors.muted, Colors.bgBase) + glyph + ' ' + label + _r());
     }
     // Count right-aligned
     final count = it.count.toString();

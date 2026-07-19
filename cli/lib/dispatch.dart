@@ -991,13 +991,42 @@ DispatchResult _visualMode(AppState s, Key k) {
 DispatchResult _searchMode(AppState s, Key k) {
   if (k.name == 'esc') {
     s.searchInput = '';
+    s.search = '';
+    s.listCursor = 0;
     s.mode = Mode.normal;
     return DispatchResult.none;
   }
   if (k.name == 'enter') {
     s.search = s.searchInput;
-    s.listCursor = 0;
     s.mode = Mode.normal;
+    final f = s.filtered();
+    if (f.isNotEmpty) {
+      s.listCursor = s.listCursor.clamp(0, f.length - 1);
+      final target = f[s.listCursor];
+      // Open the highlighted match — replaces whatever was open before.
+      s.closeDetail();
+      s.openNoteForEdit(target);
+    } else {
+      s.listCursor = 0;
+    }
+    return DispatchResult.none;
+  }
+  if (k.name == 'up') {
+    if (s.listCursor > 0) s.listCursor--;
+    return DispatchResult.none;
+  }
+  if (k.name == 'down') {
+    final f = s.filtered();
+    if (s.listCursor < f.length - 1) s.listCursor++;
+    return DispatchResult.none;
+  }
+  if (k.name == 'ctrl+p') {
+    if (s.listCursor > 0) s.listCursor--;
+    return DispatchResult.none;
+  }
+  if (k.name == 'ctrl+n') {
+    final f = s.filtered();
+    if (s.listCursor < f.length - 1) s.listCursor++;
     return DispatchResult.none;
   }
   if (k.name == 'backspace') {
@@ -1005,6 +1034,8 @@ DispatchResult _searchMode(AppState s, Key k) {
       s.searchInput = s.searchInput.substring(0, s.searchCursor - 1) +
           s.searchInput.substring(s.searchCursor);
       s.searchCursor--;
+      s.search = s.searchInput;
+      s.listCursor = 0;
     }
     return DispatchResult.none;
   }
@@ -1015,6 +1046,9 @@ DispatchResult _searchMode(AppState s, Key k) {
         k.rune! +
         s.searchInput.substring(s.searchCursor);
     s.searchCursor += k.rune!.length;
+    // Live-filter so the fzf overlay narrows as user types.
+    s.search = s.searchInput;
+    s.listCursor = 0;
   }
   return DispatchResult.none;
 }
