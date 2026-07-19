@@ -770,6 +770,20 @@ DispatchResult _runCmd(AppState s, String cmd) {
   switch (head) {
     case 'q':
     case 'quit':
+      // In detail: q on dirty = save-request. q! = discard.
+      if (s.focus == Focus.detail) {
+        s.dirty = false;
+        s.closeDetail();
+        return DispatchResult.none;
+      }
+      return const DispatchResult(quit: true);
+    case 'q!':
+    case 'quit!':
+      s.dirty = false;
+      if (s.focus == Focus.detail) {
+        s.closeDetail();
+        return DispatchResult.none;
+      }
       return const DispatchResult(quit: true);
     case 'w':
     case 'write':

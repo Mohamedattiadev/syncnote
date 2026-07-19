@@ -122,7 +122,7 @@ class AppState {
       // Score-based fuzzy match: substring > subsequence.
       final scored = it.map((n) {
         final hay = '${n.title.toLowerCase()} ${n.body.toLowerCase()} ${n.tags.join(' ').toLowerCase()}';
-        final score = _fuzzyScore(q, hay);
+        final score = fuzzyScore(q, hay);
         return (score, n);
       }).where((e) => e.$1 > 0).toList();
       scored.sort((a, b) => b.$1.compareTo(a.$1));
@@ -134,7 +134,7 @@ class AppState {
   /// 0 = no match, higher = better.
   /// - Exact substring: 1000 - position
   /// - Subsequence: chars-in-order but not adjacent, weighted by density
-  static int _fuzzyScore(String query, String haystack) {
+  static int fuzzyScore(String query, String haystack) {
     if (query.isEmpty) return 1;
     final idx = haystack.indexOf(query);
     if (idx >= 0) return 1000 - idx; // reward early substring hits
