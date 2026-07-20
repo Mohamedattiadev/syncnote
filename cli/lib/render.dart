@@ -301,7 +301,7 @@ Frame _renderFzfSearch(AppState s, int w, int h) {
 
   // Footer hint
   rows.add(_padRight(_c(Colors.muted, Colors.bgBase) +
-      '  Enter open · ↑/↓ · Ctrl+P/N · Esc cancel' + _r(), w));
+      '  Enter open · ↑/↓ · Ctrl+K / Alt+J,K · Esc cancel' + _r(), w));
 
   return Frame(rows, cursorRow: 2, cursorCol: 4 + s.searchCursor);
 }
