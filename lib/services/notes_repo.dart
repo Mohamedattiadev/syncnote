@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
+import 'package:http/http.dart' show ClientException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -9,6 +11,13 @@ import 'local_cache.dart';
 import 'mock_repo.dart';
 
 /// Shared repo interface — SupabaseNotesRepo or MockNotesRepo satisfy this.
+/// Broadcasts non-transient save failures so the UI can surface a snackbar.
+/// Network / offline errors are silently queued and NOT emitted here.
+final noteSaveErrors = StreamController<String>.broadcast();
+
+bool _isTransientNetwork(Object e) =>
+    e is SocketException || e is ClientException || e is TimeoutException;
+
 abstract class NotesRepo {
   Stream<List<Note>> watchAll();
   Future<List<Note>> fetchAll();
@@ -110,9 +119,11 @@ class SupabaseNotesRepo implements NotesRepo {
     try {
       await _insertWithFallback(note.toMap());
     } catch (e) {
-      // Offline — queue for later sync
       unawaited(LocalCache.queueOp(
           op: 'insert', noteId: note.id, payload: _sanitize(note.toMap())));
+      if (!_isTransientNetwork(e)) {
+        noteSaveErrors.add('Save failed: ${_pretty(e)}');
+      }
     }
     return note;
   }
@@ -126,7 +137,17 @@ class SupabaseNotesRepo implements NotesRepo {
     } catch (e) {
       unawaited(LocalCache.queueOp(
           op: 'update', noteId: n.id, payload: _sanitize(updated.toMap())));
+      if (!_isTransientNetwork(e)) {
+        noteSaveErrors.add('Save failed: ${_pretty(e)}');
+      }
     }
+  }
+
+  String _pretty(Object e) {
+    if (e is PostgrestException) return '${e.code ?? ''} ${e.message}'.trim();
+    if (e is AuthException) return e.message;
+    final s = e.toString();
+    return s.length > 200 ? '${s.substring(0, 200)}…' : s;
   }
 
   Future<void> _insertWithFallback(Map<String, dynamic> m) async {

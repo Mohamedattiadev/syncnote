@@ -1,12 +1,16 @@
 // App shell — left rail on wide screens (>=900), bottom nav on mobile.
 // Sections: Chat · Notes · Tasks · Stats · Settings.
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'dart:async';
+
 import '../config/theme.dart';
 import '../providers.dart';
+import '../services/notes_repo.dart';
 import '../widgets/left_rail.dart';
 import 'ai_chat_screen.dart';
 import 'ai_settings_screen.dart';
@@ -23,6 +27,28 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _idx = 1; // 1=notes (default). Chat (0) launches as a full-screen route.
+  StreamSubscription<String>? _saveErrSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _saveErrSub = noteSaveErrors.stream.listen((msg) {
+      if (!mounted) return;
+      final m = ScaffoldMessenger.maybeOf(context);
+      if (m == null) return;
+      m.showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: AppTheme.error,
+        duration: const Duration(seconds: 6),
+      ));
+    });
+  }
+
+  @override
+  void dispose() {
+    _saveErrSub?.cancel();
+    super.dispose();
+  }
 
   /// Selecting Chat pushes the immersive full-screen route rather than
   /// swapping it into the shell body (spec §9). All other tabs swap in place.
@@ -44,7 +70,11 @@ class _MainShellState extends ConsumerState<MainShell> {
           return a + undone;
         }) ??
         0;
-    final wide = MediaQuery.of(context).size.width >= 900;
+    final vw = MediaQuery.of(context).size.width;
+    final wide = vw >= 900;
+    // Web on ultrawide monitors otherwise fills the whole viewport. Cap it
+    // so line length stays comfortable.
+    final capWeb = kIsWeb && vw > 1400;
     // Bottom nav has 4 slots (chat/notes/tasks/settings), rail has 5 (adds stats).
     // On mobile we collapse Stats into Settings menu (unchanged behaviour).
     final bottomIdx = _idx > 3 ? 3 : _idx;
@@ -103,7 +133,17 @@ class _MainShellState extends ConsumerState<MainShell> {
                         noteBadge: noteCount,
                         taskBadge: taskCount,
                       ),
-                      Expanded(child: content),
+                      Expanded(
+                        child: capWeb
+                            ? Center(
+                                child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 1400),
+                                  child: content,
+                                ),
+                              )
+                            : content,
+                      ),
                     ],
                   )
                 : content,

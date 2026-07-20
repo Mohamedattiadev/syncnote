@@ -12,9 +12,12 @@ class AiSettingsStore {
     if (raw == null) return null;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
+      var model = m['model'] as String? ?? kModels.first.id;
+      // Guard against stale/removed model ids that would 404 on send.
+      if (!kModels.any((k) => k.id == model)) model = kModels.first.id;
       return AiConfig(
         apiKey: m['apiKey'] as String? ?? '',
-        model: m['model'] as String? ?? kModels.first.id,
+        model: model,
         systemPrompt: m['systemPrompt'] as String?,
       );
     } catch (_) {

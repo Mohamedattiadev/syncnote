@@ -74,9 +74,12 @@ AiCfg? loadAi() {
   try {
     final m = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
     lastAiSource = AiSource.file;
+    var model = m['model'] as String? ?? 'openai/gpt-4o-mini';
+    // Guard against stale/removed model ids that would 404 on send.
+    if (!commonModels.contains(model)) model = commonModels.first;
     return AiCfg(
       apiKey: m['apiKey'] as String? ?? '',
-      model: m['model'] as String? ?? 'openai/gpt-4o-mini',
+      model: model,
       maxTokens: (m['maxTokens'] as int?) ?? 2048,
     );
   } catch (_) {
