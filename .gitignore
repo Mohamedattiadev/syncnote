@@ -61,3 +61,4 @@ bin/syncnote
 build/
 cli/pubspec.lock
 .claude/
+android/.kotlin/
