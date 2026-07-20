@@ -28,9 +28,18 @@ class KeyReader {
 
   Stream<Key> get stream => _sc.stream;
 
+  bool _sttyPatched = false;
+
   void start() {
     stdin.echoMode = false;
     stdin.lineMode = false;
+    // Dart's lineMode=false re-applies termios and re-enables ICRNL,
+    // which translates CR→LF and makes Enter indistinguishable from Ctrl+J.
+    // Disable ICRNL AFTER lineMode=false so the bit sticks.
+    try {
+      final r = Process.runSync('stty', ['-F', '/dev/tty', '-icrnl']);
+      _sttyPatched = r.exitCode == 0;
+    } catch (_) {}
     _sub = stdin.listen(_onBytes);
   }
 
@@ -40,6 +49,10 @@ class KeyReader {
       stdin.echoMode = true;
       stdin.lineMode = true;
     } catch (_) {}
+    if (_sttyPatched) {
+      try { Process.runSync('stty', ['-F', '/dev/tty', 'icrnl']); } catch (_) {}
+      _sttyPatched = false;
+    }
     if (!_sc.isClosed) await _sc.close();
   }
 
@@ -90,7 +103,9 @@ class KeyReader {
       return Key('csi:$seq');
     }
 
-    if (b == 0x0a || b == 0x0d) {
+    // Enter is CR (0x0d) once ICRNL is disabled (see syncnote.dart startup).
+    // LF (0x0a) falls through to the generic ctrl+letter branch → ctrl+j.
+    if (b == 0x0d) {
       _buf.removeAt(0);
       return const Key('enter');
     }

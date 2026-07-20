@@ -1020,14 +1020,13 @@ DispatchResult _searchMode(AppState s, Key k) {
     if (s.listCursor < f.length - 1) s.listCursor++;
     return DispatchResult.none;
   }
-  // NOTE: Ctrl+J is 0x0A which the terminal delivers as Enter, so we
-  // can't bind it directly. Ctrl+K is 0x0B and works. Alt+j/Alt+k are
-  // provided as the vim-style pair.
-  if (k.name == 'ctrl+p' || k.name == 'ctrl+k' || k.name == 'alt+k') {
+  // ICRNL is disabled at startup so Enter arrives as CR (0x0d) and Ctrl+J
+  // as LF (0x0a) — the pair is bindable.
+  if (k.name == 'ctrl+p' || k.name == 'ctrl+k') {
     if (s.listCursor > 0) s.listCursor--;
     return DispatchResult.none;
   }
-  if (k.name == 'ctrl+n' || k.name == 'alt+j') {
+  if (k.name == 'ctrl+n' || k.name == 'ctrl+j') {
     final f = s.filtered();
     if (s.listCursor < f.length - 1) s.listCursor++;
     return DispatchResult.none;

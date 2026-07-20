@@ -36,6 +36,9 @@ Future<void> main(List<String> args) async {
     exit(2);
   }
 
+  // ICRNL is toggled by KeyReader.start/stop so Enter (CR) vs Ctrl+J (LF)
+  // stays distinguishable while raw mode is active.
+
   final cfg = Env.load();
   final store = TokenStore.userScope();
   final client = SupabaseClient(cfg.url, cfg.key);
