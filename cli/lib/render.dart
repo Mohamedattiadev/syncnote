@@ -64,7 +64,7 @@ Frame renderFrame(AppState s, int w, int h) {
     final previewLines = previewW > 0 && s.focus != Focus.detail
         ? _renderPreview(s, previewW, bodyH)
         : <String>[];
-    final divider = _c(Colors.muted, Colors.bgBase) + '┊' + _r();
+    final divider = '${_c(Colors.muted, Colors.bgBase)}┊${_r()}';
     for (int i = 0; i < bodyH; i++) {
       final t = i < treeLines.length ? treeLines[i] : '';
       final m = i < mainLines.length ? mainLines[i] : '';
@@ -131,14 +131,12 @@ const _spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', 
 String _brandBar(AppState s, int w) {
   // Colored logo dot + brand + subtle count
   final count = s.notes.length;
-  final logo = _c(Colors.accent, Colors.bgBase) + '●' + _r() +
-      _c(Colors.primary, Colors.bgBase) + '●' + _r();
-  final brand = _c(Colors.fg, Colors.bgBase) + _b() + '  syncnote' + _r();
+  final logo = '${_c(Colors.accent, Colors.bgBase)}●${_r()}${_c(Colors.primary, Colors.bgBase)}●${_r()}';
+  final brand = '${_c(Colors.fg, Colors.bgBase)}${_b()}  syncnote${_r()}';
   final countBadge = count > 0
-      ? _c(Colors.muted, Colors.bgBase) + '   ' + _c(Colors.accent, Colors.bgBase) + count.toString() + _r() +
-        _c(Colors.muted, Colors.bgBase) + ' notes' + _r()
+      ? '${_c(Colors.muted, Colors.bgBase)}   ${_c(Colors.accent, Colors.bgBase)}$count${_r()}${_c(Colors.muted, Colors.bgBase)} notes${_r()}'
       : '';
-  final left = '  ' + logo + brand + countBadge;
+  final left = '  $logo$brand$countBadge';
 
   // Show spinner during pending chat (only long-running case in-app)
   final busy = s.chatBusy;
@@ -146,9 +144,9 @@ String _brandBar(AppState s, int w) {
       ? _c(Colors.warn, Colors.bgBase) +
           _spinnerFrames[(DateTime.now().millisecondsSinceEpoch ~/ 100) % _spinnerFrames.length] +
           _r()
-      : _c(Colors.success, Colors.bgBase) + '●' + _r();
+      : '${_c(Colors.success, Colors.bgBase)}●${_r()}';
   final rightLabel = busy ? 'thinking' : 'synced';
-  final right = indicator + _c(Colors.muted, Colors.bgBase) + '  ' + rightLabel + '  ' + _r();
+  final right = '$indicator${_c(Colors.muted, Colors.bgBase)}  $rightLabel  ${_r()}';
   final gap = w - _len(left) - _len(right);
   return left + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + right;
 }
@@ -231,22 +229,18 @@ Frame _renderFzfSearch(AppState s, int w, int h) {
   final previewW = showPreview ? w - listW - 1 : 0;
 
   // Header row
-  final header = _c(Colors.accent, Colors.bgBase) + '  fzf' + _r();
+  final header = '${_c(Colors.accent, Colors.bgBase)}  fzf${_r()}';
   rows.add(_padRight(header, w));
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ${'─' * (w - 4)}${_r()}', w));
 
   // Prompt + right-aligned counter (single line)
   final selCount = matched > 0 ? 1 : 0;
   final counterText = ' $matched/$total ($selCount) ';
   final promptPlain = '  > ${s.searchInput}';
   final gap = w - promptPlain.length - counterText.length;
-  final promptRow = _c(Colors.warn, Colors.bgBase) + '  > ' + _r() +
-      _c(Colors.fg, Colors.bgBase) + s.searchInput + _r() +
-      (gap > 0 ? ' ' * gap : ' ') +
-      _c(Colors.muted, Colors.bgBase) + '$matched/$total ' + _r() +
-      _c(Colors.warn, Colors.bgBase) + '($selCount) ' + _r();
+  final promptRow = '${_c(Colors.warn, Colors.bgBase)}  > ${_r()}${_c(Colors.fg, Colors.bgBase)}${s.searchInput}${_r()}${gap > 0 ? ' ' * gap : ' '}${_c(Colors.muted, Colors.bgBase)}$matched/$total ${_r()}${_c(Colors.warn, Colors.bgBase)}($selCount) ${_r()}';
   rows.add(_padRight(promptRow, w));
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ${'─' * (w - 4)}${_r()}', w));
 
   // Body rows
   final avail = h - 6;
@@ -279,29 +273,27 @@ Frame _renderFzfSearch(AppState s, int w, int h) {
       final title = n.title.isEmpty ? '(untitled)' : n.title;
       final tags = n.tags.isEmpty
           ? ''
-          : '   ' + n.tags.map((t) => '#$t').join(' ');
+          : '   ${n.tags.map((t) => '#$t').join(' ')}';
       final marker = sel
-          ? _c(Colors.warn, Colors.bgBase) + '❯ ' + _r()
-          : _c(Colors.fg, Colors.bgBase) + '  ' + _r();
+          ? '${_c(Colors.warn, Colors.bgBase)}❯ ${_r()}'
+          : '${_c(Colors.fg, Colors.bgBase)}  ${_r()}';
       final titleStyle = sel
           ? _c(Colors.accent, Colors.bgBase) + _b()
           : _c(Colors.fg, Colors.bgBase);
-      final left = '  ' + marker + titleStyle + title + _r() +
-          _c(Colors.muted, Colors.bgBase) + tags + _r();
+      final left = '  $marker$titleStyle$title${_r()}${_c(Colors.muted, Colors.bgBase)}$tags${_r()}';
       b.write(_padRight(left, listW));
     }
     // Divider + right column: preview
     if (showPreview) {
-      b.write(_c(Colors.muted, Colors.bgBase) + '│' + _r());
+      b.write('${_c(Colors.muted, Colors.bgBase)}│${_r()}');
       final line = i < previewLines.length ? previewLines[i] : '';
-      b.write(_padRight(' ' + line, previewW));
+      b.write(_padRight(' $line', previewW));
     }
     rows.add(_padRight(b.toString(), w));
   }
 
   // Footer hint
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) +
-      '  Enter open · ↑/↓ · Ctrl+K/Ctrl+J · Esc cancel' + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  Enter open · ↑/↓ · Ctrl+K/Ctrl+J · Esc cancel${_r()}', w));
 
   return Frame(rows, cursorRow: 2, cursorCol: 4 + s.searchCursor);
 }
@@ -332,9 +324,11 @@ Frame _renderSplash(AppState s, int w, int h) {
   final dots = ((DateTime.now().millisecondsSinceEpoch ~/ 200) % 4);
   final dotStr = List.filled(dots, '·').join(' ') + List.filled(3 - dots, ' ').join(' ');
   final dotPad = ' ' * ((w - 7) ~/ 2).clamp(0, w);
-  rows.add(_padRight(dotPad + _c(Colors.accent, Colors.bgBase) + '  $dotStr  ' + _r(), w));
+  rows.add(_padRight('$dotPad${_c(Colors.accent, Colors.bgBase)}  $dotStr  ${_r()}', w));
 
-  while (rows.length < h - 1) rows.add(_padRight('', w));
+  while (rows.length < h - 1) {
+    rows.add(_padRight('', w));
+  }
   const hint = 'press any key to continue';
   final hintPad = ' ' * ((w - hint.length) ~/ 2).clamp(0, w);
   rows.add(_padRight(hintPad + _c(Colors.muted, Colors.bgBase) + hint + _r(), w));
@@ -352,21 +346,22 @@ List<String> _asciiArt() {
 
 Frame _renderHelp(AppState s, int w, int h) {
   final rows = <String>[];
-  rows.add(_c(Colors.fg, Colors.bgBase) + '  ' + _b() + 'help' + _r() +
-      _c(Colors.muted, Colors.bgBase) + '   press ? or Esc to close' + _r());
+  rows.add('${_c(Colors.fg, Colors.bgBase)}  ${_b()}help${_r()}${_c(Colors.muted, Colors.bgBase)}   press ? or Esc to close${_r()}');
   rows.add(_thinRule(w));
   for (final line in _helpText()) {
     if (rows.length >= h - 1) break;
-    rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + '  ' + line + _r(), w));
+    rows.add(_padRight('${_c(Colors.fg, Colors.bgBase)}  $line${_r()}', w));
   }
-  while (rows.length < h - 1) rows.add(_padRight('', w));
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ? / Esc to close' + _r(), w));
+  while (rows.length < h - 1) {
+    rows.add(_padRight('', w));
+  }
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ? / Esc to close${_r()}', w));
   return Frame(rows);
 }
 
 List<String> _helpText() => [
       '',
-      _b() + 'MOTION',
+      '${_b()}MOTION',
       '  h j k l           move',
       '  w b e             word forward / back / end',
       r'  0  $              line start / end',
@@ -375,7 +370,7 @@ List<String> _helpText() => [
       '  <tab>hjkl         jump 5 cells',
       '  Ctrl+d / Ctrl+u   half-page down/up',
       '',
-      _b() + 'EDIT',
+      '${_b()}EDIT',
       '  i I a A           insert · at / start / after / end',
       '  o O               new line below / above',
       '  v V               visual char / visual line',
@@ -386,13 +381,13 @@ List<String> _helpText() => [
       '  u                 undo',
       '  Ctrl+r            redo',
       '',
-      _b() + 'NAVIGATE',
+      '${_b()}NAVIGATE',
       '  Enter             open note',
       '  Tab               cycle fields (in detail)',
       '  q                 back / quit',
       '  Esc               cancel',
       '',
-      _b() + 'LEADER (space)',
+      '${_b()}LEADER (space)',
       '  <space>q          quit',
       '  <space>w          save',
       '  <space>e          toggle tree',
@@ -401,24 +396,24 @@ List<String> _helpText() => [
       '  <space>bn         new note',
       '  <space>fg         search',
       '',
-      _b() + 'COUNTS + REPEAT',
+      '${_b()}COUNTS + REPEAT',
       '  5j 10k 3w         count-prefix motion',
       '  15G / :42         jump to line N',
       '  5dd 3yy           count operators',
       '  .                 repeat last change',
       '',
-      _b() + 'CHAR SEARCH',
+      '${_b()}CHAR SEARCH',
       '  f{c} F{c}         next/prev char on line',
       '  t{c} T{c}         up-to char',
       '  ; ,               repeat / reverse',
       '',
-      _b() + 'MARKS',
+      '${_b()}MARKS',
       "  m{a-z}            set mark",
       "  '{a-z}            jump to mark",
       '  "{a-z}y  "{a-z}p  named registers',
       '  g Ctrl-g          word/char count',
       '',
-      _b() + 'COMMANDS',
+      '${_b()}COMMANDS',
       '  /                 search',
       '  :q :w :new :del :reload :help',
       '  :qa :wqa :xa      quit-all variants',
@@ -428,7 +423,7 @@ List<String> _helpText() => [
       '  :set wrap|number  toggles',
       '  :pwd :!<cmd>      shell utilities',
       '',
-      _b() + 'WEB / EXTERNAL',
+      '${_b()}WEB / EXTERNAL',
       '  gx  <space>x      open URL under cursor',
       '  :o :open <url>    open URL in browser',
       '  :import <url>     fetch + create note',
@@ -440,7 +435,7 @@ List<String> _helpText() => [
       '  :pipe <cmd>       filter buffer through cmd',
       '  :copy :paste      system clipboard',
       '',
-      _b() + 'ORGANIZATION',
+      '${_b()}ORGANIZATION',
       '  :daily            open/create daily note',
       '  :sort :sort! :sortu  sort buffer lines',
       '  :g/pat/d          delete matching lines',
@@ -448,7 +443,7 @@ List<String> _helpText() => [
       '  :bl :backlinks    show notes linking here',
       '  [[title]]         wiki-link syntax in body',
       '',
-      _b() + 'SECURITY / UNDO',
+      '${_b()}SECURITY / UNDO',
       '  :encrypt <pass>   XOR+base64 obscure current note body',
       '  :decrypt <pass>   reverse encryption',
       '  :undolist         show undo/redo stack sizes',
@@ -499,39 +494,43 @@ List<String> _renderPreview(AppState s, int w, int bodyH) {
   final n = s.currentUnderList();
 
   // Section label — small muted heading
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  PREVIEW' + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  PREVIEW${_r()}', w));
   rows.add(_padRight('', w));
 
   if (n == null) {
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  select a note to preview' + _r(), w));
-    while (rows.length < bodyH) rows.add(_padRight('', w));
+    rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  select a note to preview${_r()}', w));
+    while (rows.length < bodyH) {
+      rows.add(_padRight('', w));
+    }
     return rows;
   }
 
   final title = n.title.isEmpty ? '(untitled)' : n.title;
-  rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + _b() + '  $title' + _r(), w));
+  rows.add(_padRight('${_c(Colors.fg, Colors.bgBase)}${_b()}  $title${_r()}', w));
   rows.add(_padRight('', w));
 
   // Meta
-  final tags = n.tags.isEmpty ? '' : '   ' + n.tags.map((t) => '#$t').join('  ');
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + _fmtDate(n.updatedAt) + tags + _r(), w));
+  final tags = n.tags.isEmpty ? '' : '   ${n.tags.map((t) => '#$t').join('  ')}';
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ${_fmtDate(n.updatedAt)}$tags${_r()}', w));
   rows.add(_padRight('', w));
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ${'─' * (w - 4)}${_r()}', w));
   rows.add(_padRight('', w));
 
   final rendered = n.body.isEmpty
-      ? <String>[_c(Colors.muted, Colors.bgBase) + '(no content)' + _r()]
+      ? <String>['${_c(Colors.muted, Colors.bgBase)}(no content)${_r()}']
       : renderMarkdown(n.body);
 
   for (final r in rendered) {
     final wrapped = _wrapPreserve(r, w - 4);
     for (final w2 in wrapped) {
       if (rows.length >= bodyH) break;
-      rows.add(_padRight('  ' + w2, w));
+      rows.add(_padRight('  $w2', w));
     }
     if (rows.length >= bodyH) break;
   }
-  while (rows.length < bodyH) rows.add(_padRight('', w));
+  while (rows.length < bodyH) {
+    rows.add(_padRight('', w));
+  }
   return rows;
 }
 
@@ -542,7 +541,7 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
   final items = s.treeItems();
   final focused = s.focus == Focus.tree;
 
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  SPACES' + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  SPACES${_r()}', w));
 
   for (int i = 0; i < bodyH - 1; i++) {
     if (i >= items.length) {
@@ -557,9 +556,9 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
     final b = StringBuffer();
     // Left stripe cursor — only when tree focused + selected
     if (sel) {
-      b.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
+      b.write('${_c(Colors.primary, Colors.bgBase)}▎${_r()}');
     } else {
-      b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
+      b.write('${_c(Colors.fg, Colors.bgBase)} ${_r()}');
     }
     // Folder / tag icon
     final glyph = it.key == '__all__' ? '◉' : (it.key == '__untagged__' ? '○' : '▸');
@@ -572,10 +571,10 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
       label = '${label.substring(0, labelBudget - 1)}…';
     }
     if (active) {
-      b.write(_c(Colors.accent, Colors.bgBase) + glyph + ' ' + _r());
+      b.write('${_c(Colors.accent, Colors.bgBase)}$glyph ${_r()}');
       b.write(_c(Colors.primary, Colors.bgBase) + _b() + label + _r());
     } else {
-      b.write(_c(Colors.muted, Colors.bgBase) + glyph + ' ' + label + _r());
+      b.write('${_c(Colors.muted, Colors.bgBase)}$glyph $label${_r()}');
     }
     // Count right-aligned
     final count = it.count.toString();
@@ -583,7 +582,7 @@ List<String> _renderTree(AppState s, int w, int bodyH) {
     if (padWidth > 0) {
       b.write(' ' * padWidth);
     }
-    b.write(_c(Colors.muted, Colors.bgBase) + count + '  ' + _r());
+    b.write('${_c(Colors.muted, Colors.bgBase)}$count  ${_r()}');
     rows.add(_padRight(b.toString(), w));
   }
   return rows;
@@ -598,8 +597,7 @@ List<String> _renderList(AppState s, int w, int bodyH) {
       ? 'INBOX'
       : (s.treeFilter == '__untagged__' ? 'UNTAGGED' : '#${s.treeFilter}'.toUpperCase());
   final countStr = '${items.length}';
-  final header = _c(Colors.muted, Colors.bgBase) + '  ' + label +
-      '   ' + _c(Colors.accent, Colors.bgBase) + countStr + _r();
+  final header = '${_c(Colors.muted, Colors.bgBase)}  $label   ${_c(Colors.accent, Colors.bgBase)}$countStr${_r()}';
   rows.add(_padRight(header, w));
   rows.add(_padRight('', w));
   // Header takes 2 rows; each item = 2 rows (title + meta)
@@ -615,9 +613,11 @@ List<String> _renderList(AppState s, int w, int bodyH) {
 
   if (items.isEmpty) {
     rows.add(_padRight('', w));
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  no notes yet' + _r(), w));
-    rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  press ' + _c(Colors.warn, Colors.bgBase) + _b() + 'n' + _r() + _c(Colors.muted, Colors.bgBase) + ' to create' + _r(), w));
-    while (rows.length < bodyH) rows.add(_padRight('', w));
+    rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  no notes yet${_r()}', w));
+    rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  press ${_c(Colors.warn, Colors.bgBase)}${_b()}n${_r()}${_c(Colors.muted, Colors.bgBase)} to create${_r()}', w));
+    while (rows.length < bodyH) {
+      rows.add(_padRight('', w));
+    }
     return rows;
   }
 
@@ -633,13 +633,13 @@ List<String> _renderList(AppState s, int w, int bodyH) {
     // Row 1: title
     final b1 = StringBuffer();
     if (sel) {
-      b1.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
+      b1.write('${_c(Colors.primary, Colors.bgBase)}▎${_r()}');
     } else {
-      b1.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
+      b1.write('${_c(Colors.fg, Colors.bgBase)} ${_r()}');
     }
     b1.write(' ');
     if (n.pinned) {
-      b1.write(_c(Colors.warn, Colors.bgBase) + '★ ' + _r());
+      b1.write('${_c(Colors.warn, Colors.bgBase)}★ ${_r()}');
     }
     if (sel) {
       b1.write(_c(Colors.primary, Colors.bgBase) + _b() + title + _r());
@@ -650,14 +650,16 @@ List<String> _renderList(AppState s, int w, int bodyH) {
 
     // Row 2: meta (date + tags)
     final b2 = StringBuffer();
-    b2.write(_c(Colors.muted, Colors.bgBase) + '    ' + date);
+    b2.write('${_c(Colors.muted, Colors.bgBase)}    $date');
     if (tags.isNotEmpty) {
-      b2.write('   ' + tags);
+      b2.write('   $tags');
     }
     b2.write(_r());
     rows.add(_padRight(b2.toString(), w));
   }
-  while (rows.length < bodyH) rows.add(_padRight('', w));
+  while (rows.length < bodyH) {
+    rows.add(_padRight('', w));
+  }
   return rows;
 }
 
@@ -665,11 +667,11 @@ List<String> _renderList(AppState s, int w, int bodyH) {
 
 List<String> _renderDetail(AppState s, int w, int bodyH) {
   final rows = <String>[];
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  EDITOR' + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  EDITOR${_r()}', w));
   rows.add(_padRight('', w));
   rows.add(_fieldRow(s, 'title', s.titleBuf.text, s.fieldIdx == 0, w));
   rows.add(_fieldRow(s, 'tags', s.tagsBuf.text, s.fieldIdx == 1, w));
-  rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + '─' * (w - 4) + _r(), w));
+  rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ${'─' * (w - 4)}${_r()}', w));
 
   final bodyLines = s.bodyBuf.lines;
   final avail = bodyH - 5;
@@ -684,7 +686,7 @@ List<String> _renderDetail(AppState s, int w, int bodyH) {
     final li = scroll + i;
     String bodyRow;
     if (li >= bodyLines.length) {
-      bodyRow = _padRight(_c(Colors.muted, Colors.bgBase) + '   ~' + _r(), textW);
+      bodyRow = _padRight('${_c(Colors.muted, Colors.bgBase)}   ~${_r()}', textW);
     } else {
       bodyRow = _bodyLine(s, li, bodyLines[li], textW);
     }
@@ -710,16 +712,16 @@ String _minimapCell(AppState s, int row, int visRows, int total, int scroll) {
   final cursorLine = s.bodyBuf.cursor.row;
   final inViewport = cursorLine >= startLine && cursorLine < endLine;
   final char = inViewport
-      ? _c(Colors.primary, Colors.bgOverlay) + '▎' + _r()
+      ? '${_c(Colors.primary, Colors.bgOverlay)}▎${_r()}'
       : density > linesPerCell * 0.5
-          ? _c(Colors.muted, Colors.bgOverlay) + '│' + _r()
-          : _c(Colors.muted, Colors.bgOverlay) + '│' + _r();
-  return ' ' + char;
+          ? '${_c(Colors.muted, Colors.bgOverlay)}│${_r()}'
+          : '${_c(Colors.muted, Colors.bgOverlay)}│${_r()}';
+  return ' $char';
 }
 
 String _fieldRow(AppState s, String label, String value, bool active, int w) {
   final b = StringBuffer();
-  b.write(_c(Colors.muted, Colors.bgBase) + '  ');
+  b.write('${_c(Colors.muted, Colors.bgBase)}  ');
   if (active) {
     b.write(_c(Colors.primary, Colors.bgBase) + _b() + label + _r());
   } else {
@@ -727,7 +729,7 @@ String _fieldRow(AppState s, String label, String value, bool active, int w) {
   }
   b.write('    ');
   final display = value.isEmpty
-      ? _c(Colors.muted, Colors.bgBase) + '—' + _r()
+      ? '${_c(Colors.muted, Colors.bgBase)}—${_r()}'
       : _c(Colors.fg, Colors.bgBase) + value + _r();
   b.write(display);
   return _padRight(b.toString(), w);
@@ -742,12 +744,12 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
   // to avoid two overlapping cursor indicators in normal/visual mode.
   final wantStripe = isCursor && s.mode == Mode.insert;
   if (wantStripe) {
-    b.write(_c(Colors.primary, Colors.bgBase) + '▎' + _r());
+    b.write('${_c(Colors.primary, Colors.bgBase)}▎${_r()}');
   } else {
-    b.write(_c(Colors.fg, Colors.bgBase) + ' ' + _r());
+    b.write('${_c(Colors.fg, Colors.bgBase)} ${_r()}');
   }
   if (s.showNumbers) {
-    b.write(_c(Colors.muted, Colors.bgBase) + ' ${(rowIdx + 1).toString().padLeft(3)} ' + _r());
+    b.write('${_c(Colors.muted, Colors.bgBase)} ${(rowIdx + 1).toString().padLeft(3)} ${_r()}');
   } else {
     b.write('  ');
   }
@@ -779,7 +781,7 @@ String _bodyLine(AppState s, int rowIdx, String line, int w) {
       buf.cursor.col >= line.length &&
       line.length < maxW;
   if (cursorPast) {
-    b.write(_c(Colors.black, Colors.bgPrimary) + ' ' + _c(Colors.fg, Colors.bgBase));
+    b.write('${_c(Colors.black, Colors.bgPrimary)} ${_c(Colors.fg, Colors.bgBase)}');
     final pad = maxW - line.length - 1;
     if (pad > 0) b.write(' ' * pad);
   } else {
@@ -803,10 +805,7 @@ List<String> _renderChat(AppState s, int w, int bodyH) {
     AiSource.file => 'file',
     AiSource.none => '⚠ missing',
   };
-  final head = _c(Colors.muted, Colors.bgBase) + '  CHAT' + _r() +
-      _c(Colors.muted, Colors.bgBase) + '   mode ' + _r() + _c(Colors.fg, Colors.bgBase) + modeName + _r() +
-      _c(Colors.muted, Colors.bgBase) + '   model ' + _r() + _c(Colors.fg, Colors.bgBase) + modelName + _r() +
-      _c(Colors.muted, Colors.bgBase) + '   key ' + _r() + _c(Colors.fg, Colors.bgBase) + srcName + _r();
+  final head = '${_c(Colors.muted, Colors.bgBase)}  CHAT${_r()}${_c(Colors.muted, Colors.bgBase)}   mode ${_r()}${_c(Colors.fg, Colors.bgBase)}$modeName${_r()}${_c(Colors.muted, Colors.bgBase)}   model ${_r()}${_c(Colors.fg, Colors.bgBase)}$modelName${_r()}${_c(Colors.muted, Colors.bgBase)}   key ${_r()}${_c(Colors.fg, Colors.bgBase)}$srcName${_r()}';
   rows.add(_padRight(head, w));
 
   final lines = <_ChatLine>[];
@@ -828,34 +827,35 @@ List<String> _renderChat(AppState s, int w, int bodyH) {
     rows.add(_padRight('', w));
     if (lastAiSource == AiSource.none || s.aiCfg == null || !s.aiCfg!.valid) {
       // No key configured — show setup guidance
-      rows.add(_padRight(_c(Colors.warn, Colors.bgBase) + _b() + '  ⚠ no OpenRouter key found' + _r(), w));
+      rows.add(_padRight('${_c(Colors.warn, Colors.bgBase)}${_b()}  ⚠ no OpenRouter key found${_r()}', w));
       rows.add(_padRight('', w));
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  Set env var:' + _r(), w));
-      rows.add(_padRight(_c(Colors.warn, Colors.bgBase) + '    export OPENROUTER_KEY=sk-or-…' + _r(), w));
+      rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  Set env var:${_r()}', w));
+      rows.add(_padRight('${_c(Colors.warn, Colors.bgBase)}    export OPENROUTER_KEY=sk-or-…${_r()}', w));
       rows.add(_padRight('', w));
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  Or write config:' + _r(), w));
-      rows.add(_padRight(_c(Colors.warn, Colors.bgBase) + '    ~/.config/syncnote/ai.json' + _r(), w));
+      rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  Or write config:${_r()}', w));
+      rows.add(_padRight('${_c(Colors.warn, Colors.bgBase)}    ~/.config/syncnote/ai.json${_r()}', w));
       rows.add(_padRight('', w));
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  Get a key: ' +
-          _c(Colors.primary, Colors.bgBase) + 'https://openrouter.ai/keys' + _r(), w));
+      rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  Get a key: ${_c(Colors.primary, Colors.bgBase)}https://openrouter.ai/keys${_r()}', w));
     } else {
-      rows.add(_padRight(_c(Colors.fg, Colors.bgBase) + _b() + '  ready when you are' + _r(), w));
-      rows.add(_padRight(_c(Colors.muted, Colors.bgBase) + '  ' + (s.chatUseNotes ? 'ask about your notes' : 'general chat mode') + _r(), w));
+      rows.add(_padRight('${_c(Colors.fg, Colors.bgBase)}${_b()}  ready when you are${_r()}', w));
+      rows.add(_padRight('${_c(Colors.muted, Colors.bgBase)}  ${s.chatUseNotes ? 'ask about your notes' : 'general chat mode'}${_r()}', w));
     }
-    while (rows.length < maxH) rows.add(_padRight('', w));
+    while (rows.length < maxH) {
+      rows.add(_padRight('', w));
+    }
   } else {
     final scroll = lines.length > maxH ? lines.length - maxH : 0;
     for (int i = scroll; i < lines.length && rows.length < maxH; i++) {
       rows.add(_chatLineRender(lines[i], w));
     }
-    while (rows.length < maxH) rows.add(_padRight('', w));
+    while (rows.length < maxH) {
+      rows.add(_padRight('', w));
+    }
   }
 
-  final hint = _c(Colors.muted, Colors.bgBase) +
-      '  Ctrl+W mode · Ctrl+P model · Ctrl+L clear · Esc exit' +
-      _r();
+  final hint = '${_c(Colors.muted, Colors.bgBase)}  Ctrl+W mode · Ctrl+P model · Ctrl+L clear · Esc exit${_r()}';
   rows.add(_padRight(hint, w));
-  final prompt = _c(Colors.warn, Colors.bgBase) + '  ›' + _r() + ' ' + s.chatInput;
+  final prompt = '${_c(Colors.warn, Colors.bgBase)}  ›${_r()} ${s.chatInput}';
   rows.add(_padRight(prompt, w));
   return rows;
 }
@@ -872,8 +872,8 @@ String _chatLineRender(_ChatLine l, int w) {
   final isUser = l.role == 'user';
   final label = l.isFirst
       ? (isUser
-          ? _c(Colors.primary, Colors.bgBase) + '  you  ' + _r()
-          : _c(Colors.accent, Colors.bgBase) + '  ai   ' + _r())
+          ? '${_c(Colors.primary, Colors.bgBase)}  you  ${_r()}'
+          : '${_c(Colors.accent, Colors.bgBase)}  ai   ${_r()}')
       : '       ';
   final content = label + _c(Colors.fg, Colors.bgBase) + l.text + _r();
   return _padRight(content, w);
@@ -940,17 +940,17 @@ List<String> _wrapPreserve(String s, int width) {
 String _statusline(AppState s, int w) {
   // Confirm-quit or toast dominates.
   if (s.mode == Mode.confirmQuit) {
-    return _padRight(_c(Colors.error, Colors.bgBase) + '  quit? (y/N)' + _r(), w);
+    return _padRight('${_c(Colors.error, Colors.bgBase)}  quit? (y/N)${_r()}', w);
   }
   if (s.toast.isNotEmpty) {
     final color = s.toastErr ? Colors.error : Colors.success;
-    return _padRight(_c(color, Colors.bgBase) + '  ' + s.toast + _r(), w);
+    return _padRight('${_c(color, Colors.bgBase)}  ${s.toast}${_r()}', w);
   }
   if (s.mode == Mode.search) {
-    return _padRight(_c(Colors.warn, Colors.bgBase) + '  /' + s.searchInput + _r(), w);
+    return _padRight('${_c(Colors.warn, Colors.bgBase)}  /${s.searchInput}${_r()}', w);
   }
   if (s.mode == Mode.cmd) {
-    return _padRight(_c(Colors.warn, Colors.bgBase) + '  :' + s.cmdInput + _r(), w);
+    return _padRight('${_c(Colors.warn, Colors.bgBase)}  :${s.cmdInput}${_r()}', w);
   }
 
   // Normal: mode · context · pos · muted hints
@@ -972,20 +972,17 @@ String _statusline(AppState s, int w) {
       : s.focus == Focus.detail
           ? '${s.activeBuf.cursor.row + 1}:${s.activeBuf.cursor.col + 1}'
           : '';
-  final left = '  ' +
-      _c(modeColor, Colors.bgBase) + _b() + modeLabel + _r() +
-      _c(Colors.muted, Colors.bgBase) + '   ' + ctx +
-      (pos.isNotEmpty ? '   ' + _c(Colors.fg, Colors.bgBase) + pos : '') + _r();
+  final left = '  ${_c(modeColor, Colors.bgBase)}${_b()}$modeLabel${_r()}${_c(Colors.muted, Colors.bgBase)}   $ctx${pos.isNotEmpty ? '   ${_c(Colors.fg, Colors.bgBase)}$pos' : ''}${_r()}';
 
   // Pending indicators (count buffer / char-search operator)
   String pending = '';
   if (s.pendingCount.isNotEmpty) {
-    pending += _c(Colors.warn, Colors.bgBase) + ' [${s.pendingCount}]' + _r();
+    pending += '${_c(Colors.warn, Colors.bgBase)} [${s.pendingCount}]${_r()}';
   }
   if (s.pendingCharSearch != null) {
-    pending += _c(Colors.warn, Colors.bgBase) + ' ${s.pendingCharSearch}_' + _r();
+    pending += '${_c(Colors.warn, Colors.bgBase)} ${s.pendingCharSearch}_${_r()}';
   }
-  final hint = _c(Colors.muted, Colors.bgBase) + _hintText(s) + '  ' + _r();
+  final hint = '${_c(Colors.muted, Colors.bgBase)}${_hintText(s)}  ${_r()}';
   final gap = w - _len(left) - _len(pending) - _len(hint);
   return left + pending + (gap > 0 ? _c(Colors.fg, Colors.bgBase) + ' ' * gap : '') + hint;
 }
@@ -1010,7 +1007,7 @@ String _padRight(String s, int w) {
 String _truncPad(String s, int w) {
   if (w < 4) return '';
   final len = _len(s);
-  if (len > w) return s.substring(0, (w - 1).clamp(0, s.length)) + '…';
+  if (len > w) return '${s.substring(0, (w - 1).clamp(0, s.length))}…';
   return s + ' ' * (w - len);
 }
 

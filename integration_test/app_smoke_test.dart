@@ -76,8 +76,8 @@ void main() {
     // throwing. Boot + settle already proves it.
     app.main();
     await t.pumpAndSettle(const Duration(seconds: 5));
-    expect(tester_success, isTrue);
+    expect(testerSuccess, isTrue);
   });
 }
 
-const tester_success = true;
+const testerSuccess = true;

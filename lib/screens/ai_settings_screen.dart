@@ -315,7 +315,7 @@ class _SectionCard extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -422,10 +422,12 @@ class _LockToggleState extends State<_LockToggle> {
   Future<void> _load() async {
     final s = await AppLock.canUseBiometrics();
     final e = await AppLock.isEnabled();
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _supported = s;
       _enabled = e;
     });
+    }
   }
 
   @override

@@ -7,26 +7,26 @@ const csi = '$esc[';
 
 void aw(String s) => stdout.write(s);
 
-void enterAlt() => aw('${csi}?1049h${csi}?25l');
-void exitAlt() => aw('${csi}?1049l${csi}?25h');
+void enterAlt() => aw('$csi?1049h$csi?25l');
+void exitAlt() => aw('$csi?1049l$csi?25h');
 void clear() => aw('${csi}2J${csi}H');
-void moveTo(int row, int col) => aw('${csi}${row + 1};${col + 1}H');
-void hideCursor() => aw('${csi}?25l');
-void showCursor() => aw('${csi}?25h');
+void moveTo(int row, int col) => aw('$csi${row + 1};${col + 1}H');
+void hideCursor() => aw('$csi?25l');
+void showCursor() => aw('$csi?25h');
 void resetSgr() => aw('${csi}0m');
 
 /// Full terminal reset — used on exit to guarantee shell prompt returns cleanly.
 void terminalReset() {
   try {
     aw('${csi}0m');          // reset SGR
-    aw('${csi}?25h');        // show cursor
+    aw('$csi?25h');        // show cursor
     aw('$esc[0 q');          // reset cursor shape
-    aw('${csi}?1000l');      // disable mouse
-    aw('${csi}?1002l');      // disable button mouse
-    aw('${csi}?1003l');      // disable any mouse
-    aw('${csi}?1006l');      // disable SGR mouse
-    aw('${csi}?2004l');      // disable bracketed paste
-    aw('${csi}?1049l');      // exit alt screen (last — restore main buffer)
+    aw('$csi?1000l');      // disable mouse
+    aw('$csi?1002l');      // disable button mouse
+    aw('$csi?1003l');      // disable any mouse
+    aw('$csi?1006l');      // disable SGR mouse
+    aw('$csi?2004l');      // disable bracketed paste
+    aw('$csi?1049l');      // exit alt screen (last — restore main buffer)
     aw('$esc[!p');           // soft reset
   } catch (_) {}
   try { stdout.flush(); } catch (_) {}
@@ -58,7 +58,7 @@ class Colors {
   static const black = '38;2;40;44;52';
 }
 
-String sty(List<String> codes) => '${csi}${codes.join(';')}m';
+String sty(List<String> codes) => '$csi${codes.join(';')}m';
 
 int termCols() {
   try {

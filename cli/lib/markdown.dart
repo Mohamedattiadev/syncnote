@@ -26,18 +26,18 @@ List<String> renderMarkdown(String source) {
         // Closing fence
         inCode = false;
         codeLang = null;
-        out.add(sty([Colors.muted]) + '└' + '─' * 20 + sty(['0']));
+        out.add('${sty([Colors.muted])}└${'─' * 20}${sty(['0'])}');
       } else {
         // Opening fence
         inCode = true;
         codeLang = fenceMatch.group(1);
         final label = codeLang!.isEmpty ? 'code' : codeLang;
-        out.add(sty([Colors.muted]) + '┌ ' + sty([Colors.accent, '1']) + label + sty(['0']));
+        out.add('${sty([Colors.muted])}┌ ${sty([Colors.accent, '1'])}$label${sty(['0'])}');
       }
       continue;
     }
     if (inCode) {
-      out.add(sty([Colors.warn, Colors.bgSurface]) + '  ' + raw + sty(['0']));
+      out.add('${sty([Colors.warn, Colors.bgSurface])}  $raw${sty(['0'])}');
       continue;
     }
     out.add(_renderLine(raw));
@@ -109,7 +109,7 @@ String _inline(String s) {
   var t = s;
   // code
   t = t.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) {
-    return sty([Colors.warn, Colors.bgSurface]) + ' ${m.group(1)} ' + sty(['0']);
+    return '${sty([Colors.warn, Colors.bgSurface])} ${m.group(1)} ${sty(['0'])}';
   });
   // bold
   t = t.replaceAllMapped(RegExp(r'\*\*([^*]+)\*\*'), (m) {

@@ -194,7 +194,7 @@ Future<void> main(List<String> args) async {
 }
 
 Future<void> _signIn(SupabaseClient client, TokenStore store) async {
-  stdout.writeln(sty([Colors.accent]) + 'SyncNote — sign in' + sty(['0']));
+  stdout.writeln('${sty([Colors.accent])}SyncNote — sign in${sty(['0'])}');
   stdout.write('email: ');
   final email = stdin.readLineSync()?.trim() ?? '';
   stdout.write('password: ');
@@ -210,7 +210,7 @@ Future<void> _signIn(SupabaseClient client, TokenStore store) async {
       'email': r.session!.user.email,
     });
   } catch (e) {
-    stdout.writeln(sty([Colors.error]) + 'sign-in failed: $e' + sty(['0']));
+    stdout.writeln('${sty([Colors.error])}sign-in failed: $e${sty(['0'])}');
     exit(1);
   }
 }
@@ -346,16 +346,16 @@ void _draw(AppState s) {
     final frame = renderFrame(s, w, h);
     // Build entire frame into ONE string, single write = atomic.
     final buf = StringBuffer();
-    buf.write('${csi}?25l'); // hide cursor
+    buf.write('$csi?25l'); // hide cursor
     buf.write('${csi}2J${csi}H'); // clear + home
     for (int i = 0; i < frame.rows.length && i < h; i++) {
-      buf.write('${csi}${i + 1};1H');
+      buf.write('$csi${i + 1};1H');
       buf.write(frame.rows[i]);
     }
     if (frame.cursorRow != null && frame.cursorCol != null) {
-      buf.write('${csi}${frame.cursorRow! + 1};${frame.cursorCol! + 1}H');
+      buf.write('$csi${frame.cursorRow! + 1};${frame.cursorCol! + 1}H');
       buf.write(s.mode == Mode.insert ? '$esc[5 q' : '$esc[2 q');
-      buf.write('${csi}?25h');
+      buf.write('$csi?25h');
     }
     stdout.write(buf.toString());
   } catch (_) {

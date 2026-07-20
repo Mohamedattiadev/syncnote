@@ -16,7 +16,7 @@ class Pos {
   bool operator <(Pos o) => row < o.row || (row == o.row && col < o.col);
   bool operator <=(Pos o) => this < o || (row == o.row && col == o.col);
   @override
-  bool operator ==(Object o) => o is Pos && o.row == row && o.col == col;
+  bool operator ==(Object other) => other is Pos && other.row == row && other.col == col;
   @override
   int get hashCode => row * 100000 + col;
 }
@@ -101,8 +101,12 @@ class Buffer {
   void wordForward() {
     final line = lines[cursor.row];
     int i = cursor.col;
-    while (i < line.length && _isWord(line.codeUnitAt(i))) i++;
-    while (i < line.length && !_isWord(line.codeUnitAt(i))) i++;
+    while (i < line.length && _isWord(line.codeUnitAt(i))) {
+      i++;
+    }
+    while (i < line.length && !_isWord(line.codeUnitAt(i))) {
+      i++;
+    }
     if (i >= line.length) {
       if (cursor.row < lines.length - 1) {
         cursor.row++;
@@ -123,8 +127,12 @@ class Buffer {
     }
     final line = lines[cursor.row];
     int i = cursor.col - 1;
-    while (i > 0 && !_isWord(line.codeUnitAt(i))) i--;
-    while (i > 0 && _isWord(line.codeUnitAt(i - 1))) i--;
+    while (i > 0 && !_isWord(line.codeUnitAt(i))) {
+      i--;
+    }
+    while (i > 0 && _isWord(line.codeUnitAt(i - 1))) {
+      i--;
+    }
     if (i < 0) i = 0;
     cursor.col = i;
   }
@@ -133,8 +141,12 @@ class Buffer {
     final line = lines[cursor.row];
     int i = cursor.col;
     if (i < line.length && !_isWord(line.codeUnitAt(i))) i++;
-    while (i < line.length && !_isWord(line.codeUnitAt(i))) i++;
-    while (i < line.length - 1 && _isWord(line.codeUnitAt(i + 1))) i++;
+    while (i < line.length && !_isWord(line.codeUnitAt(i))) {
+      i++;
+    }
+    while (i < line.length - 1 && _isWord(line.codeUnitAt(i + 1))) {
+      i++;
+    }
     if (i >= line.length && cursor.row < lines.length - 1) {
       cursor.row++;
       cursor.col = 0;

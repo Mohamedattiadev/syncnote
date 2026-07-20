@@ -429,19 +429,25 @@ DispatchResult _normalMode(AppState s, Key k) {
     case 'w':
       if (s.focus == Focus.detail) {
         final n = _consumeCount(s);
-        for (int i = 0; i < n; i++) s.activeBuf.wordForward();
+        for (int i = 0; i < n; i++) {
+          s.activeBuf.wordForward();
+        }
       }
       break;
     case 'b':
       if (s.focus == Focus.detail) {
         final n = _consumeCount(s);
-        for (int i = 0; i < n; i++) s.activeBuf.wordBack();
+        for (int i = 0; i < n; i++) {
+          s.activeBuf.wordBack();
+        }
       }
       break;
     case 'e':
       if (s.focus == Focus.detail) {
         final n = _consumeCount(s);
-        for (int i = 0; i < n; i++) s.activeBuf.wordEnd();
+        for (int i = 0; i < n; i++) {
+          s.activeBuf.wordEnd();
+        }
       }
       break;
     case 'f':
@@ -1067,7 +1073,7 @@ DispatchResult _cmdMode(AppState s, Key k) {
     // Accept top completion (from render.dart cmdCompletions).
     final list = cmdCompletions(s.cmdInput);
     if (list.isNotEmpty) {
-      s.cmdInput = list.first + ' ';
+      s.cmdInput = '${list.first} ';
       s.cmdCursor = s.cmdInput.length;
     }
     return DispatchResult.none;
@@ -1390,17 +1396,23 @@ void _deleteWord(dynamic buf) {
   if (start >= line.length) return;
   int i = start;
   // consume word chars, then whitespace
-  bool _isW(int cu) =>
+  bool isW(int cu) =>
       (cu >= 0x30 && cu <= 0x39) ||
       (cu >= 0x41 && cu <= 0x5a) ||
       (cu >= 0x61 && cu <= 0x7a) ||
       cu == 0x5f;
-  if (i < line.length && _isW(line.codeUnitAt(i))) {
-    while (i < line.length && _isW(line.codeUnitAt(i))) i++;
+  if (i < line.length && isW(line.codeUnitAt(i))) {
+    while (i < line.length && isW(line.codeUnitAt(i))) {
+      i++;
+    }
   } else {
-    while (i < line.length && !_isW(line.codeUnitAt(i))) i++;
+    while (i < line.length && !isW(line.codeUnitAt(i))) {
+      i++;
+    }
   }
-  while (i < line.length && line[i] == ' ') i++;
+  while (i < line.length && line[i] == ' ') {
+    i++;
+  }
   buf.lines[buf.cursor.row] = line.substring(0, start) + line.substring(i);
 }
 
@@ -1672,7 +1684,7 @@ void _exportHtml(AppState s, String path) {
   final target = path.isEmpty
       ? '${Platform.environment['HOME'] ?? '.'}/${slugify(n.title)}.html'
       : expandTilde(path);
-  final esc = (String x) => x
+  String esc(String x) => x
       .replaceAll('&', '&amp;')
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');

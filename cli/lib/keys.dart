@@ -7,7 +7,7 @@ import 'dart:io';
 class Key {
   /// Name of a special key: 'esc', 'enter', 'tab', 'backspace', 'up', 'down',
   /// 'left', 'right', 'home', 'end', 'delete', 'pageup', 'pagedown',
-  /// 'ctrl+<letter>', 'alt+<letter>', 'shift+tab', or 'rune' for printable char.
+  /// `ctrl+<letter>`, `alt+<letter>`, 'shift+tab', or 'rune' for printable char.
   final String name;
 
   /// If [name] is 'rune', the actual printable char.

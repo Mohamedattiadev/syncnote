@@ -121,7 +121,9 @@ void main() {
     test(':new returns create result', () {
       final s = _stateWith3Notes();
       dispatch(s, rune(':'));
-      for (final c in 'new'.split('')) dispatch(s, rune(c));
+      for (final c in 'new'.split('')) {
+        dispatch(s, rune(c));
+      }
       final r = dispatch(s, const Key('enter'));
       expect(r.create, isTrue);
     });
@@ -129,7 +131,9 @@ void main() {
     test(':reload returns needsReload', () {
       final s = _stateWith3Notes();
       dispatch(s, rune(':'));
-      for (final c in 'reload'.split('')) dispatch(s, rune(c));
+      for (final c in 'reload'.split('')) {
+        dispatch(s, rune(c));
+      }
       final r = dispatch(s, const Key('enter'));
       expect(r.needsReload, isTrue);
     });
@@ -180,7 +184,9 @@ void main() {
     test('search filters list', () {
       final s = _stateWith3Notes();
       dispatch(s, rune('/'));
-      for (final c in 'two'.split('')) dispatch(s, rune(c));
+      for (final c in 'two'.split('')) {
+        dispatch(s, rune(c));
+      }
       dispatch(s, const Key('enter'));
       expect(s.filtered().length, 1);
       expect(s.filtered().first.title, 'note two');
@@ -213,8 +219,11 @@ void main() {
       dispatch(s, const Key('enter'));
       dispatch(s, rune('i'));
       for (final c in 'foo\nbar'.split('')) {
-        if (c == '\n') dispatch(s, const Key('enter'));
-        else dispatch(s, rune(c));
+        if (c == '\n') {
+          dispatch(s, const Key('enter'));
+        } else {
+          dispatch(s, rune(c));
+        }
       }
       dispatch(s, const Key('esc'));
       dispatch(s, rune('g')); dispatch(s, rune('g'));
